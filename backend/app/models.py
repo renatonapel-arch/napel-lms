@@ -118,6 +118,15 @@ class UserBadge(Base):
 
 
 # ============ NOVOS MODELS (R3) ============
+class Group(Base):
+    __tablename__ = "groups"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(120), unique=True, nullable=False)
+    description = Column(Text, default="")
+    status = Column(String(16), default="active")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Certificate(Base):
     __tablename__ = "certificates"
     id = Column(Integer, primary_key=True)
