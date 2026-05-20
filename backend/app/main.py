@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from . import models, schemas
 from .config import settings
-from .db import get_db, engine, Base
+from .db import get_db, engine, Base, SessionLocal
 from .auth import current_user, require_admin, make_token, verify_password, hash_password
 from .models import User, Course, Unit, Enrollment, Progress, Badge, UserBadge
 
@@ -28,6 +28,55 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============ ADMIN DANGER ZONE ============
+@app.post("/api/admin/reset-database")
+def reset_database(token: str, keep_admin: bool = True, db: Session = Depends(get_db)):
+    """
+    Apaga TODOS os dados do banco. Re-cria schema vazio.
+    Se keep_admin=true (default), recria APENAS o user 'renato' (SuperAdmin) com senha do ADMIN_PASSWORD.
+    Senão, banco fica totalmente vazio e você não conseguirá logar.
+
+    Proteção: ?token={ADMIN_PASSWORD}
+    """
+    if token != settings.admin_password:
+        raise HTTPException(403, "token inválido")
+
+    db.close()
+    # drop e recria via metadata
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+
+    if keep_admin:
+        new_db = SessionLocal()
+        try:
+            from .auth import hash_password
+            admin = User(
+                login="renato",
+                email="renatonapel@gmail.com",
+                name="Renato",
+                surname="Formagio Parra",
+                password_hash=hash_password(settings.admin_password),
+                user_type="SuperAdmin",
+                branch="MGA",
+                avatar_initials="R",
+                level=1,
+                points=0,
+            )
+            new_db.add(admin)
+            new_db.commit()
+            new_db.refresh(admin)
+            return {
+                "status": "reset_ok",
+                "message": "Banco zerado. Único user restante: 'renato' (SuperAdmin).",
+                "admin_login": "renato",
+                "admin_password_hint": "use o ADMIN_PASSWORD do env",
+                "admin_id": admin.id,
+            }
+        finally:
+            new_db.close()
+    return {"status": "reset_ok_empty", "message": "Banco completamente vazio. Ninguém pode logar."}
 
 
 # ============ HEALTH ============
