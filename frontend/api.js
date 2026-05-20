@@ -464,9 +464,17 @@ async function switchCourseDetailTab(courseId, idx) {
   const header = $$("#page-course-detail .flex.items-center.justify-between.mb-3")[0];
 
   if (idx === 0) {
-    // Conteúdo: re-render
-    if (header) header.style.display = "flex";
+    // Conteúdo: restaura estrutura ANTES de re-render
+    if (header) {
+      header.style.display = "flex";
+      header.innerHTML = `<h2 class="text-sm font-semibold text-naval">Unidades do curso</h2><button data-action="create-unit" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold hover:opacity-90 flex items-center gap-1.5 btn-small"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar unidade</button>`;
+    }
+    if (zone) {
+      zone.className = "bg-white border border-borderd rounded-lg divide-y divide-slate-100";
+      zone.innerHTML = "";
+    }
     await renderCourseDetail();
+    rerunLucide();
     return;
   }
   if (idx === 1) {
