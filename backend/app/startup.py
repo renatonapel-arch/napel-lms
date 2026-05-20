@@ -22,11 +22,34 @@ def wait_db(max_tries=30):
     return False
 
 
+def migrate_add_columns():
+    """Adiciona colunas novas em tabelas existentes (idempotente, Postgres 9.6+)."""
+    from sqlalchemy import text as _text
+    mig = [
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS price_amount NUMERIC(10,2) DEFAULT 0",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS price_currency VARCHAR(8) DEFAULT 'BRL'",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS capacity INTEGER",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS ai_coach BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS issue_certificate BOOLEAN DEFAULT TRUE",
+    ]
+    with engine.connect() as c:
+        for sql in mig:
+            try:
+                c.execute(_text(sql))
+                c.commit()
+            except Exception as e:
+                print(f"[migrate] skip: {sql[:60]}... ({e})")
+
+
 def main():
     if not wait_db():
         sys.exit(1)
     print("[startup] criando tabelas...")
     Base.metadata.create_all(bind=engine)
+    print("[startup] migrate add columns...")
+    migrate_add_columns()
     if settings.seed_on_startup:
         print("[startup] seed...")
         db = SessionLocal()

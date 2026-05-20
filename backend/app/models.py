@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Text, ForeignKey, DateTime, Boolean, JSON, UniqueConstraint
+    Column, Integer, String, Text, ForeignKey, DateTime, Boolean, JSON, UniqueConstraint, Numeric
 )
 from sqlalchemy.orm import relationship
 from .db import Base
@@ -37,8 +37,16 @@ class Course(Base):
     description = Column(Text, default="")
     status = Column(String(16), default="active")  # active | draft | archived
     instructor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    thumbnail_seed = Column(Integer, default=1)  # 1..5 — escolhe gradiente do mockup
-    icon = Column(String(32), default="book-open")  # nome lucide icon
+    thumbnail_seed = Column(Integer, default=1)
+    icon = Column(String(32), default="book-open")
+    # config avançada
+    price_amount = Column(Numeric(10, 2), default=0)
+    price_currency = Column(String(8), default="BRL")
+    capacity = Column(Integer, nullable=True)
+    is_hidden = Column(Boolean, default=False)
+    is_locked = Column(Boolean, default=False)
+    ai_coach = Column(Boolean, default=False)
+    issue_certificate = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     units = relationship("Unit", back_populates="course", cascade="all, delete-orphan", order_by="Unit.order_index")
@@ -107,3 +115,55 @@ class UserBadge(Base):
 
     user = relationship("User", back_populates="user_badges")
     badge = relationship("Badge")
+
+
+# ============ NOVOS MODELS (R3) ============
+class Certificate(Base):
+    __tablename__ = "certificates"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(32), unique=True, nullable=False)  # ex: NAPEL-2026-AB12CD
+    issued_at = Column(DateTime, default=datetime.utcnow)
+    __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_certificate"),)
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False)
+    slug = Column(String(64), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class GroupUser(Base):
+    __tablename__ = "group_users"
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    added_at = Column(DateTime, default=datetime.utcnow)
+
+
+class GroupCourse(Base):
+    __tablename__ = "group_courses"
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), primary_key=True)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True)
+
+
+class QuizAttempt(Base):
+    __tablename__ = "quiz_attempts"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), nullable=False, index=True)
+    attempt_number = Column(Integer, nullable=False)
+    score_pct = Column(Integer, nullable=False)
+    passed = Column(Boolean, default=False)
+    answers = Column(JSON, default=dict)  # {q_idx: selected_idx}
+    started_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+    key = Column(String(64), primary_key=True)
+    value = Column(JSON, default=dict)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

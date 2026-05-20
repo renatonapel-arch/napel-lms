@@ -8,7 +8,7 @@ from . import models, schemas
 from .config import settings
 from .db import get_db, engine, Base, SessionLocal
 from .auth import current_user, require_admin, make_token, verify_password, hash_password
-from .models import User, Course, Unit, Enrollment, Progress, Badge, UserBadge
+from .models import User, Course, Unit, Enrollment, Progress, Badge, UserBadge, Certificate, Category, GroupUser, GroupCourse, QuizAttempt, Setting
 
 # garante tabelas existem (idempotente em prod)
 Base.metadata.create_all(bind=engine)
@@ -245,6 +245,35 @@ def add_unit(course_id: int, data: schemas.UnitCreate, db: Session = Depends(get
     return unit
 
 
+@app.patch("/api/units/{unit_id}", response_model=schemas.UnitOut)
+def update_unit(unit_id: int, data: schemas.UnitUpdate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if not unit:
+        raise HTTPException(404, "unit not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(unit, k, v)
+    db.commit(); db.refresh(unit)
+    return unit
+
+
+@app.delete("/api/units/{unit_id}", status_code=204)
+def delete_unit(unit_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if not unit:
+        raise HTTPException(404, "unit not found")
+    db.delete(unit); db.commit()
+
+
+@app.patch("/api/courses/{course_id}/units/reorder")
+def reorder_units(course_id: int, items: List[schemas.UnitReorderItem], db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    for it in items:
+        unit = db.query(Unit).filter(Unit.id == it.id, Unit.course_id == course_id).first()
+        if unit:
+            unit.order_index = it.order_index
+    db.commit()
+    return {"status": "ok", "count": len(items)}
+
+
 # ============ ENROLLMENTS ============
 def compute_course_progress(db: Session, user_id: int, course_id: int) -> int:
     units = db.query(Unit).filter(Unit.course_id == course_id).all()
@@ -326,6 +355,34 @@ def enroll_user_as_admin(data: schemas.EnrollmentCreate, db: Session = Depends(g
     db.add(e); db.commit(); db.refresh(e)
     out = schemas.EnrollmentOut.model_validate(e)
     out.progress_pct = 0
+    return out
+
+
+# matrícula em massa de vários users num curso
+@app.post("/api/courses/{course_id}/enroll-bulk")
+def bulk_enroll_course(course_id: int, data: schemas.BulkEnrollIn, db: Session = Depends(get_db),
+                       _: User = Depends(require_admin)):
+    added = 0; skipped = 0
+    for uid in data.user_ids:
+        existing = db.query(Enrollment).filter(
+            Enrollment.user_id == uid, Enrollment.course_id == course_id
+        ).first()
+        if existing:
+            skipped += 1; continue
+        db.add(Enrollment(user_id=uid, course_id=course_id, role=data.role))
+        added += 1
+    db.commit()
+    return {"added": added, "skipped": skipped}
+
+
+@app.get("/api/courses/{course_id}/enrollments", response_model=List[schemas.EnrollmentOut])
+def list_course_enrollments(course_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    enrolls = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+    out = []
+    for e in enrolls:
+        eo = schemas.EnrollmentOut.model_validate(e)
+        eo.progress_pct = compute_course_progress(db, e.user_id, course_id)
+        out.append(eo)
     return out
 
 
@@ -413,7 +470,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
                 Unit.course_id == unit.course_id, Unit.order_index > unit.order_index
             ).order_by(Unit.order_index).first()
             next_uid = nxt.id if nxt else None
-            # se foi a última, marca enrollment como completo
+            # se foi a última, marca enrollment como completo + emite certificado
             if not next_uid:
                 enr = db.query(Enrollment).filter(
                     Enrollment.user_id == user.id, Enrollment.course_id == unit.course_id
@@ -423,6 +480,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
                     enr.completed_at = _dt2.utcnow()
                     user.points = (user.points or 0) + 150  # bônus
                     grant_badge_if_missing(db, user.id, "Quiz Master")
+                    _maybe_issue_certificate(db, user.id, unit.course_id)
     db.commit()
 
     return schemas.QuizAnswerOut(
@@ -474,7 +532,7 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
             user.points += 25
         else:
             user.points += 10
-    # se todas as units do curso concluídas, marca enrollment.completed_at + bonus
+    # se todas as units do curso concluídas, marca enrollment.completed_at + bonus + emite certificado
     pct = compute_course_progress(db, user.id, unit.course_id)
     if pct >= 100:
         enroll = db.query(Enrollment).filter(
@@ -483,8 +541,8 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
         if enroll and not enroll.completed_at:
             enroll.completed_at = datetime.utcnow()
             user.points += 150  # bônus curso completo
-            # auto-grant badge Quiz Master se foi quiz
             grant_badge_if_missing(db, user.id, "Quiz Master")
+            _maybe_issue_certificate(db, user.id, unit.course_id)
     db.commit()
     db.refresh(p)
     return p
@@ -549,6 +607,261 @@ def dashboard_overview(db: Session = Depends(get_db), _: User = Depends(current_
         "groups_total": 0,
         "training_time_h": completed * 1.2,  # mock
     }
+
+
+# ============ GROUPS ============
+from .models import Group
+
+def _group_out(db: Session, g: Group) -> schemas.GroupOut:
+    out = schemas.GroupOut.model_validate(g)
+    out.users_count = db.query(func.count(GroupUser.user_id)).filter(GroupUser.group_id == g.id).scalar() or 0
+    out.courses_count = db.query(func.count(GroupCourse.course_id)).filter(GroupCourse.group_id == g.id).scalar() or 0
+    return out
+
+
+@app.get("/api/groups", response_model=List[schemas.GroupOut])
+def list_groups(db: Session = Depends(get_db), _: User = Depends(current_user)):
+    groups = db.query(Group).order_by(Group.name).all()
+    return [_group_out(db, g) for g in groups]
+
+
+@app.get("/api/groups/{group_id}")
+def get_group(group_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    g = db.query(Group).filter(Group.id == group_id).first()
+    if not g: raise HTTPException(404, "group not found")
+    user_ids = [r.user_id for r in db.query(GroupUser).filter(GroupUser.group_id == group_id).all()]
+    course_ids = [r.course_id for r in db.query(GroupCourse).filter(GroupCourse.group_id == group_id).all()]
+    return {
+        **_group_out(db, g).model_dump(),
+        "user_ids": user_ids, "course_ids": course_ids,
+    }
+
+
+@app.post("/api/groups", response_model=schemas.GroupOut, status_code=201)
+def create_group(data: schemas.GroupCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    if db.query(Group).filter(Group.name == data.name).first():
+        raise HTTPException(409, "grupo já existe")
+    g = Group(**data.model_dump())
+    db.add(g); db.commit(); db.refresh(g)
+    return _group_out(db, g)
+
+
+@app.patch("/api/groups/{group_id}", response_model=schemas.GroupOut)
+def update_group(group_id: int, data: schemas.GroupUpdate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    g = db.query(Group).filter(Group.id == group_id).first()
+    if not g: raise HTTPException(404, "group not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(g, k, v)
+    db.commit(); db.refresh(g)
+    return _group_out(db, g)
+
+
+@app.delete("/api/groups/{group_id}", status_code=204)
+def delete_group(group_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    g = db.query(Group).filter(Group.id == group_id).first()
+    if not g: raise HTTPException(404, "group not found")
+    db.query(GroupUser).filter(GroupUser.group_id == group_id).delete()
+    db.query(GroupCourse).filter(GroupCourse.group_id == group_id).delete()
+    db.delete(g); db.commit()
+
+
+@app.put("/api/groups/{group_id}/users")
+def set_group_users(group_id: int, data: schemas.GroupMembersIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    db.query(GroupUser).filter(GroupUser.group_id == group_id).delete()
+    for uid in data.user_ids:
+        db.add(GroupUser(group_id=group_id, user_id=uid))
+    db.commit()
+    return {"members": len(data.user_ids)}
+
+
+@app.put("/api/groups/{group_id}/courses")
+def set_group_courses(group_id: int, data: schemas.GroupCoursesIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    db.query(GroupCourse).filter(GroupCourse.group_id == group_id).delete()
+    # Atribui curso ao grupo + auto-matricula todos os members
+    enrolled = 0
+    member_ids = [r.user_id for r in db.query(GroupUser).filter(GroupUser.group_id == group_id).all()]
+    for cid in data.course_ids:
+        db.add(GroupCourse(group_id=group_id, course_id=cid))
+        for uid in member_ids:
+            existing = db.query(Enrollment).filter(Enrollment.user_id == uid, Enrollment.course_id == cid).first()
+            if not existing:
+                db.add(Enrollment(user_id=uid, course_id=cid, role="Estudante"))
+                enrolled += 1
+    db.commit()
+    return {"courses": len(data.course_ids), "auto_enrolled": enrolled}
+
+
+# ============ CERTIFICATES ============
+import secrets
+
+@app.get("/api/users/me/certificates", response_model=List[schemas.CertificateOut])
+def my_certificates(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    certs = db.query(Certificate).filter(Certificate.user_id == user.id).all()
+    out = []
+    for c in certs:
+        course = db.query(Course).get(c.course_id)
+        co = schemas.CertificateOut.model_validate(c)
+        co.course_name = course.name if course else "?"
+        co.user_name = f"{user.name} {user.surname}".strip()
+        out.append(co)
+    return out
+
+
+def _maybe_issue_certificate(db: Session, user_id: int, course_id: int):
+    course = db.query(Course).get(course_id)
+    if not course or not course.issue_certificate:
+        return None
+    existing = db.query(Certificate).filter(Certificate.user_id == user_id, Certificate.course_id == course_id).first()
+    if existing:
+        return existing
+    code = f"NAPEL-{datetime.utcnow().year}-{secrets.token_hex(3).upper()}"
+    cert = Certificate(user_id=user_id, course_id=course_id, code=code)
+    db.add(cert); db.commit(); db.refresh(cert)
+    return cert
+
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/api/certificates/{cert_id}/html", response_class=HTMLResponse)
+def render_certificate_html(cert_id: int, db: Session = Depends(get_db)):
+    cert = db.query(Certificate).get(cert_id)
+    if not cert:
+        raise HTTPException(404, "certificate not found")
+    user = db.query(User).get(cert.user_id)
+    course = db.query(Course).get(cert.course_id)
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8"><title>Certificado · {user.name} {user.surname}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }}
+body {{ background:#FAFCFD; min-height:100vh; padding:32px; display:flex; align-items:center; justify-content:center; }}
+.cert {{ width:100%; max-width:880px; aspect-ratio: 11/8.5; background:white; border:12px solid #113C58; box-shadow:0 25px 60px rgba(0,0,0,0.15); padding:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; position:relative; }}
+.cert::before {{ content:''; position:absolute; inset:18px; border:2px solid #7DA4C6; pointer-events:none; }}
+.brand {{ font-size:38px; font-weight:800; color:#113C58; letter-spacing:.12em; }}
+.brand span {{ font-size:14px; color:#7DA4C6; vertical-align:middle; margin-left:6px; }}
+.title {{ font-size:14px; text-transform:uppercase; letter-spacing:.4em; color:#7DA4C6; margin-top:24px; }}
+.cert h1 {{ font-size:46px; font-weight:800; color:#113C58; margin:18px 0 24px; }}
+.recipient {{ font-size:32px; font-weight:700; color:#042C48; margin:8px 0 20px; padding-bottom:8px; border-bottom:2px solid #E4EEF3; }}
+.body-text {{ font-size:15px; color:#475569; max-width:620px; line-height:1.7; }}
+.course {{ font-weight:700; color:#113C58; }}
+.footer {{ margin-top:36px; display:flex; gap:48px; align-items:center; justify-content:center; font-size:12px; color:#64748B; }}
+.footer .col {{ text-align:center; }}
+.footer .col .label {{ text-transform:uppercase; letter-spacing:.15em; font-size:10px; }}
+.footer .col .value {{ font-weight:700; color:#113C58; margin-top:4px; font-size:13px; }}
+.code {{ position:absolute; bottom:24px; left:50%; transform:translateX(-50%); font-family:monospace; color:#94A3B8; font-size:11px; letter-spacing:.2em; }}
+@media print {{
+  body {{ padding:0; background:white; }}
+  .cert {{ border:8px solid #113C58; box-shadow:none; max-width:100%; }}
+  .print-btn {{ display:none !important; }}
+}}
+.print-btn {{ position:fixed; bottom:24px; right:24px; padding:12px 24px; background:#113C58; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; box-shadow:0 8px 24px rgba(17,60,88,0.3); }}
+</style>
+</head><body>
+<div class="cert">
+  <div class="brand">NAPEL <span>LMS</span></div>
+  <div class="title">Certificado de Conclusão</div>
+  <h1>Conferimos a</h1>
+  <div class="recipient">{user.name.upper()} {user.surname.upper()}</div>
+  <p class="body-text">
+    Por ter concluído com aproveitamento o curso<br>
+    <span class="course">"{course.name}"</span><br>
+    aplicando-se os conhecimentos necessários à formação contínua da equipe Napel.
+  </p>
+  <div class="footer">
+    <div class="col"><div class="label">Data emissão</div><div class="value">{cert.issued_at.strftime('%d/%m/%Y')}</div></div>
+    <div class="col"><div class="label">Código de validação</div><div class="value">{cert.code}</div></div>
+  </div>
+  <div class="code">Verifique em lms.napel.com.br/certificates/{cert.code}</div>
+</div>
+<button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
+</body></html>"""
+    return HTMLResponse(content=html)
+
+
+# ============ CATEGORIES ============
+import re as _re
+
+def _slugify(s: str) -> str:
+    return _re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+@app.get("/api/categories", response_model=List[schemas.CategoryOut])
+def list_categories(db: Session = Depends(get_db), _: User = Depends(current_user)):
+    cats = db.query(Category).order_by(Category.name).all()
+    # padrão fallback se vazio
+    if not cats:
+        defaults = ["Técnicas de venda", "Catálogo técnico", "Atendimento ao cliente", "Compliance", "Geral"]
+        for n in defaults:
+            db.add(Category(name=n, slug=_slugify(n)))
+        db.commit()
+        cats = db.query(Category).order_by(Category.name).all()
+    return cats
+
+
+@app.post("/api/categories", response_model=schemas.CategoryOut, status_code=201)
+def create_category(data: schemas.CategoryCreate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    slug = _slugify(data.name)
+    if db.query(Category).filter((Category.name == data.name) | (Category.slug == slug)).first():
+        raise HTTPException(409, "categoria já existe")
+    c = Category(name=data.name, slug=slug)
+    db.add(c); db.commit(); db.refresh(c)
+    return c
+
+
+@app.delete("/api/categories/{cat_id}", status_code=204)
+def delete_category(cat_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    c = db.query(Category).filter(Category.id == cat_id).first()
+    if not c: raise HTTPException(404, "category not found")
+    db.delete(c); db.commit()
+
+
+# ============ SETTINGS ============
+def _get_setting(db: Session, key: str, default: dict) -> dict:
+    s = db.query(Setting).filter(Setting.key == key).first()
+    if not s:
+        return default
+    return {**default, **(s.value or {})}
+
+
+def _set_setting(db: Session, key: str, value: dict):
+    s = db.query(Setting).filter(Setting.key == key).first()
+    if not s:
+        s = Setting(key=key, value=value)
+        db.add(s)
+    else:
+        s.value = value
+    db.commit()
+
+
+@app.get("/api/settings/portal", response_model=schemas.PortalSettings)
+def get_portal_settings(db: Session = Depends(get_db), _: User = Depends(current_user)):
+    d = schemas.PortalSettings().model_dump()
+    return schemas.PortalSettings(**_get_setting(db, "portal", d))
+
+
+@app.put("/api/settings/portal", response_model=schemas.PortalSettings)
+def update_portal_settings(data: schemas.PortalSettings, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    _set_setting(db, "portal", data.model_dump())
+    return data
+
+
+@app.get("/api/settings/gamification", response_model=schemas.GamificationSettings)
+def get_gam_settings(db: Session = Depends(get_db), _: User = Depends(current_user)):
+    d = schemas.GamificationSettings().model_dump()
+    return schemas.GamificationSettings(**_get_setting(db, "gamification", d))
+
+
+@app.put("/api/settings/gamification", response_model=schemas.GamificationSettings)
+def update_gam_settings(data: schemas.GamificationSettings, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    _set_setting(db, "gamification", data.model_dump())
+    return data
+
+
+# ============ QUIZ HISTORY ============
+@app.get("/api/users/{user_id}/quiz-attempts", response_model=List[schemas.QuizAttemptOut])
+def user_quiz_attempts(user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    return db.query(QuizAttempt).filter(QuizAttempt.user_id == user_id).order_by(QuizAttempt.started_at.desc()).all()
 
 
 # ============ DASHBOARD EXTRAS ============

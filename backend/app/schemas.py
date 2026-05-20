@@ -55,6 +55,13 @@ class CourseOut(BaseModel):
     instructor_id: Optional[int] = None
     thumbnail_seed: int
     icon: str
+    price_amount: float = 0
+    price_currency: str = "BRL"
+    capacity: Optional[int] = None
+    is_hidden: bool = False
+    is_locked: bool = False
+    ai_coach: bool = False
+    issue_certificate: bool = True
     units_count: int = 0
     enrollments_count: int = 0
     created_at: datetime
@@ -79,6 +86,15 @@ class CourseUpdate(BaseModel):
     category: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
+    thumbnail_seed: Optional[int] = None
+    icon: Optional[str] = None
+    price_amount: Optional[float] = None
+    price_currency: Optional[str] = None
+    capacity: Optional[int] = None
+    is_hidden: Optional[bool] = None
+    is_locked: Optional[bool] = None
+    ai_coach: Optional[bool] = None
+    issue_certificate: Optional[bool] = None
 
 
 # === unit ===
@@ -210,6 +226,119 @@ class UserUpdate(BaseModel):
 
 class EnrollmentRoleUpdate(BaseModel):
     role: str  # Professor | Estudante | Trainer
+
+
+# === unit update ===
+class UnitUpdate(BaseModel):
+    title: Optional[str] = None
+    type: Optional[str] = None
+    duration_min: Optional[int] = None
+    content: Optional[dict] = None
+    order_index: Optional[int] = None
+
+
+class UnitReorderItem(BaseModel):
+    id: int
+    order_index: int
+
+
+# === bulk enroll ===
+class BulkEnrollIn(BaseModel):
+    user_ids: List[int]
+    role: str = "Estudante"
+
+
+# === group ===
+class GroupOut(BaseModel):
+    id: int
+    name: str
+    description: str = ""
+    status: str = "active"
+    users_count: int = 0
+    courses_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class GroupCreate(BaseModel):
+    name: str
+    description: str = ""
+
+
+class GroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
+class GroupMembersIn(BaseModel):
+    user_ids: List[int]
+
+
+class GroupCoursesIn(BaseModel):
+    course_ids: List[int]
+
+
+# === certificate ===
+class CertificateOut(BaseModel):
+    id: int
+    user_id: int
+    course_id: int
+    code: str
+    issued_at: datetime
+    course_name: Optional[str] = None
+    user_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# === category ===
+class CategoryOut(BaseModel):
+    id: int
+    name: str
+    slug: str
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryCreate(BaseModel):
+    name: str
+
+
+# === settings ===
+class PortalSettings(BaseModel):
+    site_name: str = "Napel LMS"
+    site_description: str = ""
+    primary_color: str = "#113C58"
+    logo_url: Optional[str] = None
+
+
+class GamificationSettings(BaseModel):
+    enabled: bool = True
+    login_points: int = 25
+    unit_completion_points: int = 25
+    course_completion_points: int = 150
+    quiz_pass_points: int = 25
+    quiz_perfect_bonus: int = 50
+    level_up_points: int = 1000
+
+
+# === quiz history ===
+class QuizAttemptOut(BaseModel):
+    id: int
+    user_id: int
+    unit_id: int
+    attempt_number: int
+    score_pct: int
+    passed: bool
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 # resolve forward
