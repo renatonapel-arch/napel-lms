@@ -702,9 +702,20 @@ async function renderProfile() {
         <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd"><div class="text-2xl font-extrabold text-naval">${enrollments.length}</div><div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Cursos</div></div>
         <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd col-span-2 md:col-span-1"><div class="text-2xl font-extrabold text-success-fg">${completed}</div><div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Concluídos</div></div>`;
     }
+    // tab counts
+    const tabs = $$("#page-profile .tab-trigger");
+    if (tabs[0]) tabs[0].textContent = "Meus cursos";
+    if (tabs[1]) tabs[1].textContent = `Badges (${badges.length})`;
+    if (tabs[2]) tabs[2].textContent = `Certificados (0)`;
     // cursos list
     const coursesList = $("#page-profile .lg\\:col-span-2 .space-y-3");
-    if (coursesList && enrollments.length > 0) {
+    if (coursesList && enrollments.length === 0) {
+      coursesList.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center">
+        <i data-lucide="book-x" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>
+        <h3 class="text-sm font-semibold text-naval mb-1">Você ainda não está matriculado em nenhum curso</h3>
+        <p class="text-xs text-slate-500 mb-4">Vá em <a href="#/courses" class="text-naval font-semibold underline">Cursos</a> pra se inscrever.</p>
+      </div>`;
+    } else if (coursesList && enrollments.length > 0) {
       const allCourses = await api("/api/courses");
       const courseMap = Object.fromEntries(allCourses.map(c => [c.id, c]));
       coursesList.innerHTML = enrollments.map(e => {
