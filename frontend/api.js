@@ -539,6 +539,8 @@ const routes = {
   "profile": renderProfile,
 };
 async function handleRoute() {
+  // Guard: se não há user/token, força login antes de tentar render
+  if (!state.user || !getToken()) { showLoginModal(); return; }
   const name = (location.hash || "#/dashboard").replace("#/", "").split("?")[0];
   if (routes[name]) {
     try { await routes[name](); } catch (e) { console.error("[route]", e); }
