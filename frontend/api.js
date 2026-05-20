@@ -860,6 +860,12 @@ async function bootstrapAfterLogin(user) {
   state.user = user;
   state.token = getToken();
   renderTopbar(user);
+  // atualiza badge "Utilizadores N" no sidebar (count real, em todas as telas)
+  try {
+    const ov = await api("/api/dashboard/overview");
+    const sideUsers = document.querySelector('#sidebar a[data-nav="user-detail"] span.ml-auto');
+    if (sideUsers) sideUsers.textContent = ov.users_active;
+  } catch {}
   await handleRoute();
 }
 
