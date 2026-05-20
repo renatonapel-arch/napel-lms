@@ -2035,7 +2035,7 @@ tailwind.config = {
   }
 
   function navigate(hash) {
-    const name = (hash || '').replace('#/', '');
+    const name = (hash || '').replace('#/', '').split('?')[0];
     showPage(name);
   }
 
