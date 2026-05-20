@@ -184,5 +184,33 @@ class CourseDetail(CourseOut):
     instructor: Optional[UserOut] = None
 
 
+# === quiz ===
+class QuizAnswerIn(BaseModel):
+    selected_idx: int
+
+
+class QuizAnswerOut(BaseModel):
+    correct: bool
+    correct_idx: int
+    explanation: Optional[str] = None
+    score_pct: int = 0
+    passed: bool = False
+    earned_points: int = 0
+    next_unit_id: Optional[int] = None
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    email: Optional[EmailStr] = None
+    user_type: Optional[str] = None
+    branch: Optional[str] = None
+    status: Optional[str] = None
+
+
+class EnrollmentRoleUpdate(BaseModel):
+    role: str  # Professor | Estudante | Trainer
+
+
 # resolve forward
 TokenOut.model_rebuild()

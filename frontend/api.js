@@ -265,6 +265,24 @@ async function renderCourseDetail() {
     const desc = $("#page-course-detail h1 + p");
     if (desc) desc.textContent = course.description;
 
+    // adiciona botão "Inscrever-me" se learner e não matriculado
+    try {
+      const myEnrolls = await api("/api/users/me/enrollments");
+      const alreadyEnrolled = myEnrolls.some(e => e.course_id === course.id);
+      const editBtnContainer = $("#page-course-detail .flex.gap-2");
+      if (editBtnContainer && !alreadyEnrolled) {
+        const has = editBtnContainer.querySelector('[data-action="enroll-self"]');
+        if (!has) {
+          const b = document.createElement("button");
+          b.dataset.action = "enroll-self";
+          b.dataset.id = course.id;
+          b.className = "px-4 py-2.5 bg-success-bd text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm";
+          b.innerHTML = '<i data-lucide="plus" class="w-4 h-4"></i> Inscrever-me';
+          editBtnContainer.appendChild(b);
+        }
+      }
+    } catch (e) { /* ignora */ }
+
     // units
     const unitsList = $("#page-course-detail .bg-white.border.border-borderd.rounded-lg.divide-y");
     if (unitsList && course.units) {
@@ -392,24 +410,42 @@ async function renderUserDetail() {
       <span>·</span><span class="flex items-center gap-1"><i data-lucide="mail" class="w-3.5 h-3.5"></i> ${escapeHtml(u.email)}</span>
       ${u.last_login ? `<span>·</span><span class="flex items-center gap-1"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> ${new Date(u.last_login).toLocaleDateString("pt-BR")}</span>` : ""}`;
 
-    // tabela cursos
+    // tabela cursos (com nomes reais)
     const tbody = $("#page-user-detail .data-table tbody");
     if (tbody) {
-      tbody.innerHTML = u.enrollments.map((e, i) => `
-        <tr ${i === 0 ? 'class="bg-gelo"' : ""}>
+      const allCourses = await api("/api/courses").catch(() => []);
+      const courseMap = Object.fromEntries(allCourses.map(c => [c.id, c]));
+      tbody.innerHTML = u.enrollments.map((e, i) => {
+        const c = courseMap[e.course_id] || { name: `curso #${e.course_id}`, code: "", icon: "book-open", thumbnail_seed: 1 };
+        return `
+        <tr data-enroll-id="${e.id}" ${i === 0 ? 'class="bg-gelo"' : ""}>
           <td><input type="checkbox" class="rounded border-borders"></td>
           <td>
             <div class="flex items-center gap-3">
-              <div class="skeleton-thumb w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="book-open" class="w-4 h-4 text-white"></i></div>
-              <div class="font-medium text-naval line-clamp-1">curso #${e.course_id} · ${e.progress_pct}%</div>
+              <div class="${thumbClass(c.thumbnail_seed)} w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="${escapeHtml(c.icon)}" class="w-4 h-4 text-white"></i></div>
+              <div>
+                <div class="font-medium text-naval line-clamp-1">${escapeHtml(c.name)}</div>
+                <div class="text-[11px] text-slate-500">${e.progress_pct}% concluído</div>
+              </div>
             </div>
           </td>
-          <td class="hidden md:table-cell text-slate-400">—</td>
-          <td><span class="badge ${e.role === "Professor" ? "badge-info" : "badge-neutral"}">${escapeHtml(e.role)}</span></td>
+          <td class="hidden md:table-cell"><code class="text-xs bg-white px-2 py-1 rounded text-slate-500">${escapeHtml(c.code || "—")}</code></td>
+          <td>
+            <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+              <option ${e.role === "Estudante" ? "selected" : ""}>Estudante</option>
+              <option ${e.role === "Professor" ? "selected" : ""}>Professor</option>
+              <option ${e.role === "Trainer" ? "selected" : ""}>Trainer</option>
+            </select>
+          </td>
           <td class="hidden md:table-cell text-slate-600">${new Date(e.enrolled_at).toLocaleDateString("pt-BR")}</td>
           <td class="hidden lg:table-cell">${e.completed_at ? `<span class="text-success-fg font-semibold">${new Date(e.completed_at).toLocaleDateString("pt-BR")}</span>` : '<span class="text-slate-400">—</span>'}</td>
-          <td><div class="flex items-center justify-end gap-1"><button class="p-2 hover:bg-gelo rounded-md icon-only"><i data-lucide="more-horizontal" class="w-4 h-4 text-naval"></i></button></div></td>
-        </tr>`).join("");
+          <td>
+            <div class="flex items-center justify-end gap-1">
+              <a href="#/course-detail?id=${e.course_id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Ver curso"><i data-lucide="eye" class="w-4 h-4 text-naval"></i></a>
+              <button data-action="unenroll" data-id="${e.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Desmatricular"><i data-lucide="user-minus" class="w-4 h-4 text-danger-bd"></i></button>
+            </div>
+          </td>
+        </tr>`;}).join("");
     }
 
     // info widgets

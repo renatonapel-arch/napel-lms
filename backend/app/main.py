@@ -237,12 +237,170 @@ def my_enrollments(db: Session = Depends(get_db), user: User = Depends(current_u
 
 
 @app.delete("/api/enrollments/{enroll_id}", status_code=204)
-def remove_enroll(enroll_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+def remove_enroll(enroll_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     e = db.query(Enrollment).filter(Enrollment.id == enroll_id).first()
     if not e:
         raise HTTPException(404, "not found")
+    # learner pode remover própria matrícula, admin pode remover qualquer
+    if e.user_id != user.id and user.user_type not in ("SuperAdmin", "Admin"):
+        raise HTTPException(403, "forbidden")
     db.delete(e)
     db.commit()
+
+
+@app.patch("/api/enrollments/{enroll_id}", response_model=schemas.EnrollmentOut)
+def update_enroll_role(enroll_id: int, data: schemas.EnrollmentRoleUpdate,
+                       db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    e = db.query(Enrollment).filter(Enrollment.id == enroll_id).first()
+    if not e:
+        raise HTTPException(404, "not found")
+    if data.role not in ("Professor", "Estudante", "Trainer"):
+        raise HTTPException(400, "invalid role")
+    e.role = data.role
+    db.commit()
+    db.refresh(e)
+    out = schemas.EnrollmentOut.model_validate(e)
+    out.progress_pct = compute_course_progress(db, e.user_id, e.course_id)
+    return out
+
+
+# matrícula em nome de outro user (admin enrola alguém)
+@app.post("/api/enrollments/admin", response_model=schemas.EnrollmentOut, status_code=201)
+def enroll_user_as_admin(data: schemas.EnrollmentCreate, db: Session = Depends(get_db),
+                         _: User = Depends(require_admin)):
+    existing = db.query(Enrollment).filter(
+        Enrollment.user_id == data.user_id, Enrollment.course_id == data.course_id
+    ).first()
+    if existing:
+        raise HTTPException(409, "já matriculado")
+    e = Enrollment(user_id=data.user_id, course_id=data.course_id, role=data.role)
+    db.add(e); db.commit(); db.refresh(e)
+    out = schemas.EnrollmentOut.model_validate(e)
+    out.progress_pct = 0
+    return out
+
+
+# ============ USERS (extras) ============
+@app.patch("/api/users/{user_id}", response_model=schemas.UserOut)
+def update_user(user_id: int, data: schemas.UserUpdate, db: Session = Depends(get_db),
+                user: User = Depends(current_user)):
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(404, "user not found")
+    # admin pode editar qualquer; user pode editar a si mesmo (name/surname/email só)
+    is_admin = user.user_type in ("SuperAdmin", "Admin")
+    is_self = user.id == user_id
+    if not (is_admin or is_self):
+        raise HTTPException(403, "forbidden")
+    updates = data.model_dump(exclude_unset=True)
+    if not is_admin:
+        for k in ("user_type", "branch", "status"):
+            updates.pop(k, None)
+    for k, v in updates.items():
+        setattr(target, k, v)
+    db.commit(); db.refresh(target)
+    return target
+
+
+@app.delete("/api/users/{user_id}", status_code=204)
+def delete_user(user_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    if user_id == user.id:
+        raise HTTPException(400, "não pode deletar a si mesmo")
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(404, "user not found")
+    db.delete(target); db.commit()
+
+
+# ============ QUIZ ============
+@app.post("/api/units/{unit_id}/quiz-answer", response_model=schemas.QuizAnswerOut)
+def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
+                       db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Submete UMA resposta de quiz. q_idx = índice da pergunta (0-based)."""
+    unit = db.query(Unit).filter(Unit.id == unit_id).first()
+    if not unit or unit.type != "quiz":
+        raise HTTPException(404, "quiz unit not found")
+    questions = (unit.content or {}).get("questions", [])
+    if q_idx < 0 or q_idx >= len(questions):
+        raise HTTPException(400, f"q_idx fora de range (0..{len(questions)-1})")
+    q = questions[q_idx]
+    correct_idx = q.get("correct", -1)
+    is_correct = data.selected_idx == correct_idx
+
+    # acumula score na coluna data do Progress (sessão simples — não persiste por questão)
+    prog = db.query(Progress).filter(Progress.user_id == user.id, Progress.unit_id == unit_id).first()
+    if not prog:
+        prog = Progress(user_id=user.id, unit_id=unit_id, data={})
+        db.add(prog)
+    if not isinstance(prog.data, dict):
+        prog.data = {}
+    answers = prog.data.get("answers", {})
+    answers[str(q_idx)] = {"selected": data.selected_idx, "correct": is_correct}
+    prog.data = {**prog.data, "answers": answers}
+
+    # score atual
+    total = len(questions)
+    answered = len(answers)
+    correct_count = sum(1 for a in answers.values() if a.get("correct"))
+    score_pct = int(round(correct_count * 100 / total)) if total else 0
+    passing = (unit.content or {}).get("passing_score", 70)
+
+    # se respondeu todas, finaliza unit
+    earned = 0
+    next_uid = None
+    passed = False
+    if answered >= total:
+        passed = score_pct >= passing
+        prog.score = score_pct
+        if passed:
+            prog.completion_pct = 100
+            from datetime import datetime as _dt
+            if not prog.completed_at:
+                prog.completed_at = _dt.utcnow()
+            earned = 25 + (50 if score_pct == 100 else 0)
+            user.points = (user.points or 0) + earned
+            # próxima unit
+            nxt = db.query(Unit).filter(
+                Unit.course_id == unit.course_id, Unit.order_index > unit.order_index
+            ).order_by(Unit.order_index).first()
+            next_uid = nxt.id if nxt else None
+            # se foi a última, marca enrollment como completo
+            if not next_uid:
+                enr = db.query(Enrollment).filter(
+                    Enrollment.user_id == user.id, Enrollment.course_id == unit.course_id
+                ).first()
+                if enr and not enr.completed_at:
+                    from datetime import datetime as _dt2
+                    enr.completed_at = _dt2.utcnow()
+                    user.points = (user.points or 0) + 150  # bônus
+                    grant_badge_if_missing(db, user.id, "Quiz Master")
+    db.commit()
+
+    return schemas.QuizAnswerOut(
+        correct=is_correct,
+        correct_idx=correct_idx,
+        explanation=q.get("explanation"),
+        score_pct=score_pct,
+        passed=passed,
+        earned_points=earned,
+        next_unit_id=next_uid,
+    )
+
+
+# ============ NAVIGATION ============
+@app.get("/api/courses/{course_id}/units/{unit_id}/next")
+def get_next_unit(course_id: int, unit_id: int, db: Session = Depends(get_db),
+                  _: User = Depends(current_user)):
+    cur = db.query(Unit).filter(Unit.id == unit_id, Unit.course_id == course_id).first()
+    if not cur:
+        return {"next_unit_id": None, "prev_unit_id": None}
+    nxt = db.query(Unit).filter(
+        Unit.course_id == course_id, Unit.order_index > cur.order_index
+    ).order_by(Unit.order_index).first()
+    prv = db.query(Unit).filter(
+        Unit.course_id == course_id, Unit.order_index < cur.order_index
+    ).order_by(Unit.order_index.desc()).first()
+    return {"next_unit_id": nxt.id if nxt else None, "prev_unit_id": prv.id if prv else None}
 
 
 # ============ PROGRESS ============

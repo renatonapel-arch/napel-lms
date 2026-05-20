@@ -245,10 +245,10 @@ tailwind.config = {
           <p class="text-sm text-slate-500 mt-1">Quinta-feira, 20 de maio · 5 utilizadores ativos · 38 cursos</p>
         </div>
         <div class="flex gap-2">
-          <button class="px-4 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+          <button data-action="placeholder" class="px-4 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
             <i data-lucide="plus" class="w-4 h-4"></i> Adicionar widget
           </button>
-          <button class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Editar modo">
+          <button data-action="placeholder" class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Editar modo">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
         </div>
@@ -308,27 +308,27 @@ tailwind.config = {
         <div class="widget">
           <div class="widget-header"><h3 class="widget-title flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4"></i> Ações rápidas</h3></div>
           <div class="widget-body grid grid-cols-1 gap-2">
-            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+            <button data-action="create-user" class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
               <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="user-plus" class="w-5 h-5"></i></div>
               <div class="flex-1"><div class="text-sm font-semibold text-naval">Adicionar utilizador</div><div class="text-xs text-slate-500">Cadastrar novo vendedor ou instrutor</div></div>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
             </button>
-            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+            <button data-action="create-course" class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
               <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="book-plus" class="w-5 h-5"></i></div>
               <div class="flex-1"><div class="text-sm font-semibold text-naval">Adicionar curso</div><div class="text-xs text-slate-500">Criar novo treinamento do zero</div></div>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
             </button>
-            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+            <button data-action="placeholder" class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
               <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></div>
               <div class="flex-1"><div class="text-sm font-semibold text-naval">Definições do portal</div><div class="text-xs text-slate-500">Branding, idiomas, integrações</div></div>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
             </button>
-            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+            <button data-action="placeholder" class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
               <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="users-round" class="w-5 h-5"></i></div>
               <div class="flex-1"><div class="text-sm font-semibold text-naval">Adicionar grupo</div><div class="text-xs text-slate-500">Agrupar alunos por filial ou função</div></div>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
             </button>
-            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+            <button data-action="placeholder" class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
               <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="file-bar-chart" class="w-5 h-5"></i></div>
               <div class="flex-1"><div class="text-sm font-semibold text-naval">Relatórios personalizados</div><div class="text-xs text-slate-500">Cruzar matrículas, progresso, badges</div></div>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
@@ -518,13 +518,13 @@ tailwind.config = {
           <p class="text-sm text-slate-500 mt-1">38 cursos · 5 alunos ativos · 31 concluídos no mês</p>
         </div>
         <div class="flex gap-2 flex-wrap">
-          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+          <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
             <i data-lucide="folder-tree" class="w-4 h-4"></i> Categorias
           </button>
-          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+          <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
             <i data-lucide="upload" class="w-4 h-4"></i> Importar
           </button>
-          <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+          <button data-action="create-course" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
             <i data-lucide="plus" class="w-4 h-4"></i> Adicionar curso
           </button>
         </div>
@@ -726,7 +726,7 @@ tailwind.config = {
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6 pt-4 border-t border-borderd">
         <div class="text-sm text-slate-500">Mostrando <strong class="text-naval">1–9</strong> de <strong class="text-naval">38</strong> cursos</div>
         <div class="flex items-center gap-2">
-          <button class="px-3 py-2 border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-1.5 btn-small"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button>
+          <button data-action="export-courses-csv" class="px-3 py-2 border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-1.5 btn-small"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button>
           <div class="flex items-center gap-1 ml-2">
             <button class="w-9 h-9 rounded-md border border-borderd text-slate-400 disabled:opacity-50 icon-only" disabled aria-label="Anterior"><i data-lucide="chevron-left" class="w-4 h-4 mx-auto"></i></button>
             <button class="w-9 h-9 rounded-md bg-naval text-white text-sm font-semibold icon-only">1</button>
@@ -762,10 +762,10 @@ tailwind.config = {
           <p class="text-sm text-slate-500 mt-2 max-w-3xl">Domine as 5 técnicas-chave que multiplicam a taxa de fechamento de pedidos de molas e suspensão para carretas. Inclui exemplos reais de visita técnica e quiz de validação.</p>
         </div>
         <div class="flex gap-2">
-          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+          <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
             <i data-lucide="eye" class="w-4 h-4"></i> Pré-visualizar
           </button>
-          <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+          <button data-action="edit-course" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
             <i data-lucide="pencil" class="w-4 h-4"></i> Editar curso
           </button>
         </div>
@@ -784,7 +784,7 @@ tailwind.config = {
           <!-- ações da seção -->
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-semibold text-naval">Unidades do curso</h2>
-            <button class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold hover:opacity-90 flex items-center gap-1.5 btn-small">
+            <button data-action="create-unit" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold hover:opacity-90 flex items-center gap-1.5 btn-small">
               <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar unidade
             </button>
           </div>
@@ -912,7 +912,7 @@ tailwind.config = {
             </div>
           </div>
 
-          <button class="w-full px-4 py-3 bg-danger-bg text-danger-fg border border-danger-bd rounded-md text-sm font-semibold hover:bg-danger-bd hover:text-white transition-colors flex items-center justify-center gap-2">
+          <button data-action="archive-course" class="w-full px-4 py-3 bg-danger-bg text-danger-fg border border-danger-bd rounded-md text-sm font-semibold hover:bg-danger-bd hover:text-white transition-colors flex items-center justify-center gap-2">
             <i data-lucide="archive" class="w-4 h-4"></i> Arquivar curso
           </button>
         </aside>
@@ -971,14 +971,14 @@ tailwind.config = {
 
           <!-- nav buttons -->
           <div class="flex flex-col sm:flex-row gap-3 justify-between">
-            <button class="px-4 py-3 bg-white border border-borderd rounded-md text-sm font-semibold text-naval hover:bg-gelo flex items-center justify-center gap-2">
+            <button data-action="prev-unit" class="px-4 py-3 bg-white border border-borderd rounded-md text-sm font-semibold text-naval hover:bg-gelo flex items-center justify-center gap-2">
               <i data-lucide="arrow-left" class="w-4 h-4"></i> Unidade anterior
             </button>
             <div class="flex gap-2 flex-col sm:flex-row">
               <button class="px-4 py-3 bg-success-bg text-success-fg border border-success-bd rounded-md text-sm font-semibold hover:bg-success-bd hover:text-white flex items-center justify-center gap-2">
                 <i data-lucide="check-circle-2" class="w-4 h-4"></i> Marcar como concluído
               </button>
-              <button class="px-4 py-3 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center justify-center gap-2 shadow-sm">
+              <button data-action="next-unit" class="px-4 py-3 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center justify-center gap-2 shadow-sm">
                 Próxima unidade <i data-lucide="arrow-right" class="w-4 h-4"></i>
               </button>
             </div>
@@ -1359,8 +1359,8 @@ tailwind.config = {
             </div>
           </div>
           <div class="flex gap-2 md:pb-2">
-            <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4"></i> Mensagem</button>
-            <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Editar perfil</button>
+            <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4"></i> Mensagem</button>
+            <button data-action="edit-profile" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Editar perfil</button>
           </div>
         </div>
 
@@ -1512,17 +1512,17 @@ tailwind.config = {
           <div class="widget">
             <div class="widget-header"><h3 class="widget-title">Segurança</h3></div>
             <div class="widget-body space-y-3">
-              <button class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
+              <button data-action="placeholder" class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
                 <i data-lucide="key" class="w-4 h-4 text-ceu"></i>
                 <span class="text-sm flex-1 text-naval">Alterar senha</span>
                 <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
               </button>
-              <button class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
+              <button data-action="placeholder" class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
                 <i data-lucide="smartphone" class="w-4 h-4 text-ceu"></i>
                 <span class="text-sm flex-1 text-naval">Autenticação 2 fatores</span>
                 <span class="badge badge-warn">Inativa</span>
               </button>
-              <button class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
+              <button data-action="logout-all" class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
                 <i data-lucide="log-out" class="w-4 h-4 text-danger-bd"></i>
                 <span class="text-sm flex-1 text-danger-fg font-semibold">Encerrar todas as sessões</span>
               </button>
@@ -1550,14 +1550,14 @@ tailwind.config = {
           <p class="text-sm text-slate-500 mt-1">Visão pivot · 7 vendedores × 6 cursos · status sincronizado em tempo real</p>
         </div>
         <div class="flex gap-2">
-          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2">
+          <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2">
             <i data-lucide="eye" class="w-4 h-4"></i> Visualizar <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
           </button>
           <div class="flex">
-            <button class="px-4 py-2.5 bg-naval text-white rounded-l-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <button data-action="export-courses-csv" class="px-4 py-2.5 bg-naval text-white rounded-l-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
               <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar Excel
             </button>
-            <button class="px-2.5 bg-naval text-white border-l border-white/20 rounded-r-md hover:opacity-90 icon-only" aria-label="Mais opções de export"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>
+            <button data-action="placeholder" class="px-2.5 bg-naval text-white border-l border-white/20 rounded-r-md hover:opacity-90 icon-only" aria-label="Mais opções de export"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>
           </div>
         </div>
       </div>
@@ -1755,9 +1755,9 @@ tailwind.config = {
           </div>
         </div>
         <div class="flex gap-2">
-          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
-          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="user-cog" class="w-4 h-4"></i> Personificar</button>
-          <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+          <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+          <button data-action="impersonate" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="user-cog" class="w-4 h-4"></i> Personificar</button>
+          <button data-action="edit-user" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
             <i data-lucide="pencil" class="w-4 h-4"></i> Editar utilizador
           </button>
         </div>
@@ -1786,8 +1786,8 @@ tailwind.config = {
           <i data-lucide="user-check" class="w-4 h-4"></i> Ativo
         </button>
         <div class="md:ml-auto flex gap-2">
-          <button class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button>
-          <button class="h-10 px-4 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+          <button data-action="export-user-courses-csv" class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button>
+          <button data-action="enroll-user" class="h-10 px-4 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
             <i data-lucide="plus" class="w-4 h-4"></i> Inscrever-se no curso
           </button>
         </div>
@@ -2030,6 +2030,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=3"></script>
+<script src="api.js?v=4"></script>
+<script src="actions.js?v=1"></script>
 </body>
 </html>
