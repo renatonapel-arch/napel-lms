@@ -192,6 +192,125 @@ async function openEditUser(userId) {
   });
 }
 
+async function openEditUnit(unitId) {
+  const u = await api(`/api/units/${unitId}`);
+  const c = u.content || {};
+  const typeIsQuiz = u.type === "quiz";
+  const initialQuestions = typeIsQuiz ? (c.questions || [{ q: "", options: ["", "", "", ""], correct: 0 }]) : [];
+
+  const body = `
+    ${fld("eu-title", "Título *", { value: u.title })}
+    ${fld("eu-type", "Tipo", { value: u.type, choices: [
+      {value:"video",label:"Vídeo"},{value:"text",label:"Texto"},{value:"quiz",label:"Quiz"},{value:"pdf",label:"PDF"},{value:"scorm",label:"SCORM"}
+    ]})}
+    ${fld("eu-duration", "Duração (min)", { type: "number", value: String(u.duration_min || 5) })}
+    <div id="eu-content-area">
+      <div id="eu-fld-video" class="${u.type === "video" ? "" : "hidden"}">${fld("eu-video-url", "URL do vídeo (YouTube ou MP4)", { value: c.video_url || "", required: false, placeholder: "https://www.youtube.com/watch?v=…" })}</div>
+      <div id="eu-fld-pdf" class="${u.type === "pdf" ? "" : "hidden"}">${fld("eu-pdf-url", "URL do PDF", { value: c.pdf_url || "", required: false, placeholder: "https://…/arquivo.pdf" })}</div>
+      <div id="eu-fld-text" class="${u.type === "text" ? "" : "hidden"}">${fld("eu-text-md", "Conteúdo (markdown)", { value: c.text_md || "", required: false, rows: 8, hint: "Suporta **negrito**, *itálico*, # títulos, listas, links" })}</div>
+      <div id="eu-fld-quiz" class="${typeIsQuiz ? "" : "hidden"}">
+        ${fld("eu-quiz-pass", "Nota mínima (%)", { type: "number", value: String(c.passing_score || 70), required: false })}
+        ${fld("eu-quiz-attempts", "Máximo de tentativas", { type: "number", value: String(c.max_attempts || 3), required: false })}
+        <div style="margin-top:8px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+          <label style="font-size:12px;font-weight:600;color:#113C58">Perguntas</label>
+          <button type="button" onclick="addQuestionRow()" style="padding:4px 12px;background:#113C58;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer">+ Pergunta</button>
+        </div>
+        <div id="quiz-questions"></div>
+      </div>
+    </div>
+  `;
+
+  showModal({
+    title: "Editar unidade",
+    bodyHtml: body,
+    okText: "Salvar",
+    onOk: async () => {
+      const type = val("eu-type");
+      let content = {};
+      if (type === "video") content = { video_url: val("eu-video-url") };
+      else if (type === "pdf") content = { pdf_url: val("eu-pdf-url") };
+      else if (type === "text") content = { text_md: val("eu-text-md") };
+      else if (type === "quiz") {
+        const questions = collectQuizQuestions();
+        if (questions.length === 0) throw new Error("Adicione ao menos 1 pergunta");
+        content = {
+          passing_score: parseInt(val("eu-quiz-pass")) || 70,
+          max_attempts: parseInt(val("eu-quiz-attempts")) || 3,
+          questions,
+        };
+      }
+      await api(`/api/units/${unitId}`, { method: "PATCH", body: JSON.stringify({
+        title: val("eu-title"), type, duration_min: parseInt(val("eu-duration")) || 5, content,
+      })});
+      toast("Unidade atualizada ✓");
+      if (typeof renderCourseDetail === "function") await renderCourseDetail();
+    },
+  });
+
+  // popular perguntas de quiz
+  if (typeIsQuiz) {
+    initialQuestions.forEach(q => addQuestionRow(q));
+  }
+
+  // toggle conteúdo por tipo
+  document.getElementById("eu-type").onchange = (e) => {
+    ["video", "pdf", "text", "quiz"].forEach(t => {
+      const el = document.getElementById(`eu-fld-${t}`);
+      if (el) el.classList.toggle("hidden", e.target.value !== t);
+    });
+    if (e.target.value === "quiz" && document.querySelectorAll("#quiz-questions > div").length === 0) {
+      addQuestionRow();
+    }
+  };
+}
+
+function addQuestionRow(initial) {
+  const container = document.getElementById("quiz-questions");
+  if (!container) return;
+  const idx = container.children.length;
+  const q = initial || { q: "", options: ["", "", "", ""], correct: 0 };
+  const row = document.createElement("div");
+  row.className = "qrow";
+  row.style.cssText = "background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px;padding:12px;margin-bottom:8px";
+  row.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase">Pergunta ${idx + 1}</span>
+      <button type="button" onclick="this.parentElement.parentElement.remove()" style="background:transparent;border:none;color:#EF4444;cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <input type="text" class="qrow-q" value="${escapeHtml(q.q)}" placeholder="Texto da pergunta…" style="width:100%;padding:6px 10px;border:1px solid #CFDEE7;border-radius:4px;font-size:13px;margin-bottom:8px">
+    ${[0,1,2,3].map(i => `
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px;cursor:pointer">
+        <input type="radio" name="correct-${idx}" class="qrow-correct" value="${i}" ${i === q.correct ? "checked" : ""}>
+        <span style="font-weight:600;color:#113C58;width:18px">${String.fromCharCode(65+i)})</span>
+        <input type="text" class="qrow-opt" data-i="${i}" value="${escapeHtml((q.options || [])[i] || '')}" placeholder="Alternativa ${String.fromCharCode(65+i)}" style="flex:1;padding:5px 8px;border:1px solid #CFDEE7;border-radius:4px;font-size:12px">
+      </label>`).join("")}
+  `;
+  container.appendChild(row);
+}
+window.addQuestionRow = addQuestionRow;
+
+function collectQuizQuestions() {
+  const rows = document.querySelectorAll("#quiz-questions > .qrow");
+  const out = [];
+  rows.forEach(row => {
+    const q = row.querySelector(".qrow-q").value.trim();
+    if (!q) return;
+    const opts = Array.from(row.querySelectorAll(".qrow-opt")).map(i => i.value.trim());
+    const correct = parseInt((row.querySelector(".qrow-correct:checked") || { value: 0 }).value);
+    out.push({ q, options: opts, correct });
+  });
+  return out;
+}
+
+async function deleteUnit(unitId) {
+  if (!confirm("Deletar esta unidade? Conteúdo e progressos dos alunos serão perdidos.")) return;
+  try {
+    await api(`/api/units/${unitId}`, { method: "DELETE" });
+    toast("Unidade deletada");
+    if (typeof renderCourseDetail === "function") await renderCourseDetail();
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
 async function openCreateUnit(courseId) {
   showModal({
     title: "Adicionar unidade",
@@ -471,6 +590,200 @@ function exportCsv(filename, rows, headers) {
   toast("CSV baixado ✓");
 }
 
+async function deleteCourse(courseId) {
+  if (!confirm("Deletar este curso permanentemente? Todas as matrículas e progresso serão apagados. (Se quiser só esconder, use 'Arquivar curso')")) return;
+  try {
+    await api(`/api/courses/${courseId}`, { method: "DELETE" });
+    toast("Curso deletado");
+    location.hash = "#/courses";
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+async function openCourseSettings(courseId) {
+  const c = await api(`/api/courses/${courseId}`);
+  showModal({
+    title: "Configurações do curso",
+    bodyHtml:
+      `<div style="font-size:13px;color:#64748B;margin-bottom:14px">Ajustes avançados de <strong>${escapeHtml(c.name)}</strong></div>` +
+      fld("cs-price", "Preço (R$)", { type: "number", value: String(c.price_amount || 0), required: false, hint: "0 = curso gratuito" }) +
+      fld("cs-capacity", "Capacidade (máximo de alunos)", { type: "number", value: c.capacity ? String(c.capacity) : "", required: false, hint: "vazio = ilimitado" }) +
+      `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
+          <input type="checkbox" id="cs-hidden" ${c.is_hidden ? "checked" : ""}> <span>Oculto do catálogo (só admin vê)</span>
+        </label>
+      </div>` +
+      `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
+          <input type="checkbox" id="cs-locked" ${c.is_locked ? "checked" : ""}> <span>Bloqueado (precisa admin aprovar inscrição)</span>
+        </label>
+      </div>` +
+      `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
+          <input type="checkbox" id="cs-cert" ${c.issue_certificate ? "checked" : ""}> <span>Emite certificado ao concluir</span>
+        </label>
+      </div>` +
+      `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
+          <input type="checkbox" id="cs-ai" ${c.ai_coach ? "checked" : ""}> <span>AI Coach habilitado (futuro)</span>
+        </label>
+      </div>` +
+      `<div style="margin-top:18px;padding-top:14px;border-top:1px solid #E4EEF3">
+        <button type="button" onclick="hideModal(); deleteCourse(${courseId})" style="background:#FEE2E2;color:#991B1B;border:1px solid #EF4444;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🗑 Deletar permanentemente</button>
+      </div>`,
+    okText: "Salvar configurações",
+    onOk: async () => {
+      await api(`/api/courses/${courseId}`, { method: "PATCH", body: JSON.stringify({
+        price_amount: parseFloat(val("cs-price")) || 0,
+        capacity: val("cs-capacity") ? parseInt(val("cs-capacity")) : null,
+        is_hidden: document.getElementById("cs-hidden").checked,
+        is_locked: document.getElementById("cs-locked").checked,
+        issue_certificate: document.getElementById("cs-cert").checked,
+        ai_coach: document.getElementById("cs-ai").checked,
+      })});
+      toast("Configurações salvas ✓");
+      if (typeof renderCourseDetail === "function") await renderCourseDetail();
+    },
+  });
+}
+
+async function openBulkEnrollModal(courseId) {
+  const [course, allUsers, enrolls] = await Promise.all([
+    api(`/api/courses/${courseId}`),
+    api("/api/users"),
+    api(`/api/courses/${courseId}/enrollments`),
+  ]);
+  const enrolledIds = new Set(enrolls.map(e => e.user_id));
+  const candidates = allUsers.filter(u => !enrolledIds.has(u.id));
+  if (candidates.length === 0) {
+    toast("Todos os utilizadores já estão matriculados neste curso.", "info");
+    return;
+  }
+  showModal({
+    title: `Matricular alunos em "${course.name}"`,
+    bodyHtml:
+      `<div style="font-size:13px;color:#64748B;margin-bottom:12px">Selecione os utilizadores pra matricular (${candidates.length} disponíveis)</div>` +
+      `<div style="margin-bottom:12px"><input id="be-search" type="search" placeholder="Filtrar…" style="width:100%;padding:8px 12px;border:1px solid #CFDEE7;border-radius:6px;font-size:13px"></div>` +
+      fld("be-role", "Papel", { choices: ["Estudante", "Professor", "Trainer"] }) +
+      `<div style="max-height:300px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px">
+        <div style="padding:8px 12px;background:#FAFCFD;border-bottom:1px solid #E4EEF3;display:flex;justify-content:space-between;align-items:center">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;font-weight:600;color:#113C58">
+            <input type="checkbox" id="be-all" onchange="document.querySelectorAll('.be-row').forEach(r=>r.checked=this.checked)"> Selecionar todos
+          </label>
+        </div>
+        <div id="be-list">
+          ${candidates.map(u => `
+            <label class="be-item" data-name="${escapeHtml((u.name + " " + u.surname).toLowerCase())}" data-email="${escapeHtml(u.email.toLowerCase())}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #F1F5F9;cursor:pointer">
+              <input type="checkbox" class="be-row" value="${u.id}">
+              <div class="avatar" style="width:28px;height:28px;font-size:11px">${escapeHtml(u.avatar_initials)}</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#113C58">${escapeHtml(u.name)} ${escapeHtml(u.surname || "")}</div><div style="font-size:11px;color:#64748B">${escapeHtml(u.email)} · ${escapeHtml(u.user_type)} · ${escapeHtml(u.branch)}</div></div>
+            </label>`).join("")}
+        </div>
+      </div>`,
+    okText: "Matricular selecionados",
+    onOk: async () => {
+      const ids = Array.from(document.querySelectorAll(".be-row:checked")).map(c => parseInt(c.value));
+      if (ids.length === 0) throw new Error("Selecione ao menos 1 utilizador");
+      const r = await api(`/api/courses/${courseId}/enroll-bulk`, {
+        method: "POST", body: JSON.stringify({ user_ids: ids, role: val("be-role") }),
+      });
+      toast(`${r.added} matriculado(s) ✓ · ${r.skipped} já estavam`);
+      if (typeof renderCourseDetail === "function") await renderCourseDetail();
+    },
+  });
+  // search filter
+  setTimeout(() => {
+    document.getElementById("be-search").oninput = (e) => {
+      const v = e.target.value.toLowerCase();
+      document.querySelectorAll(".be-item").forEach(el => {
+        const match = el.dataset.name.includes(v) || el.dataset.email.includes(v);
+        el.style.display = match ? "flex" : "none";
+      });
+    };
+  }, 100);
+}
+
+/* ============ GROUPS ============ */
+async function openCreateGroup() {
+  showModal({
+    title: "Criar grupo",
+    bodyHtml:
+      fld("g-name", "Nome do grupo *", { placeholder: "Ex: Vendedores MGA" }) +
+      fld("g-description", "Descrição", { required: false, rows: 2, placeholder: "Pra que serve este grupo?" }),
+    okText: "Criar grupo",
+    onOk: async () => {
+      await api("/api/groups", { method: "POST", body: JSON.stringify({
+        name: val("g-name"), description: val("g-description"),
+      })});
+      toast("Grupo criado ✓");
+      if (typeof renderGroups === "function") await renderGroups();
+    },
+  });
+}
+
+async function openEditGroup(groupId) {
+  const [g, allUsers, allCourses] = await Promise.all([
+    api(`/api/groups/${groupId}`),
+    api("/api/users"),
+    api("/api/courses?status=active"),
+  ]);
+  const memberSet = new Set(g.user_ids);
+  const courseSet = new Set(g.course_ids);
+  showModal({
+    title: `Editar grupo "${g.name}"`,
+    bodyHtml:
+      fld("g-name", "Nome", { value: g.name }) +
+      fld("g-description", "Descrição", { value: g.description || "", required: false, rows: 2 }) +
+      `<label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin:14px 0 6px">Membros</label>
+      <div style="max-height:180px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px;padding:6px">
+        ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" class="g-user" value="${u.id}" ${memberSet.has(u.id) ? "checked" : ""}>
+          <span>${escapeHtml(u.name)} ${escapeHtml(u.surname || "")} <span style="color:#94A3B8">(${escapeHtml(u.login)})</span></span>
+        </label>`).join("")}
+      </div>
+      <label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin:14px 0 6px">Cursos atribuídos <span style="color:#94A3B8;font-weight:400">(membros são auto-matriculados)</span></label>
+      <div style="max-height:160px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px;padding:6px">
+        ${allCourses.length === 0 ? '<div style="color:#94A3B8;font-size:12px;padding:6px">Sem cursos ativos.</div>' : allCourses.map(c => `<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
+          <input type="checkbox" class="g-course" value="${c.id}" ${courseSet.has(c.id) ? "checked" : ""}>
+          <span>${escapeHtml(c.name)}</span>
+        </label>`).join("")}
+      </div>`,
+    okText: "Salvar",
+    onOk: async () => {
+      const newUsers = Array.from(document.querySelectorAll(".g-user:checked")).map(c => parseInt(c.value));
+      const newCourses = Array.from(document.querySelectorAll(".g-course:checked")).map(c => parseInt(c.value));
+      await api(`/api/groups/${groupId}`, { method: "PATCH", body: JSON.stringify({
+        name: val("g-name"), description: val("g-description"),
+      })});
+      await api(`/api/groups/${groupId}/users`, { method: "PUT", body: JSON.stringify({ user_ids: newUsers }) });
+      const r = await api(`/api/groups/${groupId}/courses`, { method: "PUT", body: JSON.stringify({ course_ids: newCourses }) });
+      toast(`Grupo salvo · ${r.auto_enrolled} novas matrículas`);
+      if (typeof renderGroups === "function") await renderGroups();
+    },
+  });
+}
+
+async function deleteGroup(groupId) {
+  if (!confirm("Deletar este grupo? As matrículas dos cursos atribuídos permanecem.")) return;
+  try {
+    await api(`/api/groups/${groupId}`, { method: "DELETE" });
+    toast("Grupo deletado");
+    if (typeof renderGroups === "function") await renderGroups();
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+async function openCreateCategory() {
+  showModal({
+    title: "Nova categoria",
+    bodyHtml: fld("cat-name", "Nome da categoria *", { placeholder: "Ex: Pós-venda" }),
+    okText: "Criar",
+    onOk: async () => {
+      await api("/api/categories", { method: "POST", body: JSON.stringify({ name: val("cat-name") }) });
+      toast("Categoria criada ✓");
+      if (typeof renderAccount === "function") await renderAccount();
+    },
+  });
+}
+
 async function deleteUser(userId) {
   if (!confirm("Deletar este utilizador? Todas as matrículas e progresso dele serão apagados.")) return;
   try {
@@ -518,7 +831,17 @@ document.addEventListener("click", async (e) => {
     case "create-user": return openCreateUser();
     case "create-unit": return openCreateUnit(id || currentCourseIdFromHash());
     case "edit-course": return openEditCourse(id || currentCourseIdFromHash());
+    case "course-settings": return openCourseSettings(id || currentCourseIdFromHash());
+    case "enroll-bulk": return openBulkEnrollModal(id || currentCourseIdFromHash());
     case "archive-course": return openArchiveCourse(id || currentCourseIdFromHash());
+    case "edit-unit": return openEditUnit(id);
+    case "delete-unit": return deleteUnit(id);
+    case "view-certificate": return window.open(`${API_BASE}/api/certificates/${id}/html`, "_blank");
+    case "delete-course": return deleteCourse(id || currentCourseIdFromHash());
+    case "create-group": return openCreateGroup();
+    case "edit-group": return openEditGroup(id);
+    case "delete-group": return deleteGroup(id);
+    case "create-category": return openCreateCategory();
     case "edit-user": return openEditUser(id || currentUserIdFromHash());
     case "edit-profile": return openEditProfile();
     case "enroll-self": return selfEnroll(id || currentCourseIdFromHash());

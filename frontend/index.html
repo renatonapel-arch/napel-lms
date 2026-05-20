@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 tailwind.config = {
   theme: {
@@ -180,8 +181,8 @@ tailwind.config = {
       <i data-lucide="users" class="nav-icon w-5 h-5 text-ceu"></i> Utilizadores
       <span class="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded" id="sb-users-count">—</span>
     </a>
-    <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
-      <i data-lucide="users-round" class="nav-icon w-5 h-5 text-slate-500"></i> Grupos
+    <a href="#/groups" data-nav="groups" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="users-round" class="nav-icon w-5 h-5 text-ceu"></i> Grupos
     </a>
     <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
       <i data-lucide="git-branch" class="nav-icon w-5 h-5 text-slate-500"></i> Ramificações
@@ -190,8 +191,8 @@ tailwind.config = {
     <a href="#/matrix" data-nav="matrix" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
       <i data-lucide="bar-chart-3" class="nav-icon w-5 h-5 text-ceu"></i> Relatórios
     </a>
-    <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
-      <i data-lucide="settings" class="nav-icon w-5 h-5 text-slate-500"></i> Configurações
+    <a href="#/account" data-nav="account" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="settings" class="nav-icon w-5 h-5 text-ceu"></i> Configurações
     </a>
   </nav>
   <div class="p-3 border-t border-slate-700/40 shrink-0">
@@ -1677,6 +1678,33 @@ tailwind.config = {
       </div>
     </section>
 
+    <!-- ================== 11. GRUPOS ================== -->
+    <section id="page-groups" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval">Grupos</h1>
+          <p class="text-sm text-slate-500 mt-1" id="groups-subtitle">—</p>
+        </div>
+        <button data-action="create-group" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i> Criar grupo
+        </button>
+      </div>
+      <div id="groups-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ================== 12. CONFIGURAÇÕES (ACCOUNT) ================== -->
+    <section id="page-account" class="page">
+      <h1 class="text-2xl font-bold text-naval mb-2">Conta &amp; Configurações</h1>
+      <p class="text-sm text-slate-500 mb-6">Ajustes do portal Napel LMS</p>
+      <div class="flex border-b border-borderd mb-4 overflow-x-auto" id="account-tabs">
+        <button class="tab-trigger active" data-account-tab="portal">Portal</button>
+        <button class="tab-trigger" data-account-tab="categories">Categorias</button>
+        <button class="tab-trigger" data-account-tab="gamification">Gamificação</button>
+        <button class="tab-trigger" data-account-tab="info">Sistema</button>
+      </div>
+      <div id="account-content"></div>
+    </section>
+
     <!-- ================== 10. LISTA DE UTILIZADORES ================== -->
     <section id="page-users" class="page">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
@@ -1979,7 +2007,7 @@ tailwind.config = {
 </div>
 
 <script>
-  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users'];
+  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account'];
 
   function showPage(name) {
     const target = pages.includes(name) ? name : 'dashboard';
@@ -2034,7 +2062,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=8"></script>
-<script src="actions.js?v=3"></script>
+<script src="api.js?v=9"></script>
+<script src="actions.js?v=4"></script>
 </body>
 </html>

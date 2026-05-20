@@ -131,6 +131,21 @@ function avatarHtml(initials, size = "") {
 const SEED_CLASS = ["skeleton-thumb", "skeleton-thumb-2", "skeleton-thumb-3", "skeleton-thumb-4", "skeleton-thumb-5"];
 function thumbClass(seed) { return SEED_CLASS[(seed - 1) % SEED_CLASS.length] || "skeleton-thumb"; }
 function rerunLucide() { if (window.lucide) window.lucide.createIcons(); }
+async function showProfileHistory() {
+  const attempts = await api(`/api/users/${state.user.id}/quiz-attempts`).catch(() => []);
+  let zone = $("#profile-cert-zone");
+  if (!zone) {
+    zone = document.createElement("div"); zone.id = "profile-cert-zone";
+    const coursesList = $("#page-profile .lg\\:col-span-2 .space-y-3");
+    if (coursesList) coursesList.parentElement.insertBefore(zone, $("#page-profile .mt-8"));
+  }
+  zone.style.display = "";
+  zone.innerHTML = attempts.length === 0
+    ? `<div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="history" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><p class="text-sm text-slate-500">Sem histórico de quiz ainda.</p></div>`
+    : `<div class="bg-white border border-borderd rounded-lg overflow-hidden"><table class="data-table"><thead><tr><th>Quiz (unit_id)</th><th class="text-center">Tentativa</th><th class="text-center">Score</th><th class="text-center">Status</th><th>Data</th></tr></thead><tbody>${attempts.map(a => `<tr><td>#${a.unit_id}</td><td class="text-center">${a.attempt_number}</td><td class="text-center font-bold">${a.score_pct}%</td><td class="text-center"><span class="badge ${a.passed ? "badge-success" : "badge-danger"}">${a.passed ? "Aprovado" : "Reprovado"}</span></td><td class="text-xs">${new Date(a.started_at).toLocaleString("pt-BR")}</td></tr>`).join("")}</tbody></table></div>`;
+  rerunLucide();
+}
+
 function relativeTime(iso) {
   if (!iso) return "";
   const d = new Date(iso); const now = new Date();
@@ -376,22 +391,35 @@ async function renderCourseDetail() {
       }
     } catch (e) { /* ignora */ }
 
-    // units
+    // units (com botões edit + delete)
     const unitsList = $("#page-course-detail .bg-white.border.border-borderd.rounded-lg.divide-y");
     if (unitsList && course.units) {
       const iconByType = { video: "video", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
       unitsList.innerHTML = course.units.map((u, i) => `
-        <div class="unit-row" onclick="location.hash='#/unit-player?course=${course.id}&unit=${u.id}'">
-          <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+        <div class="unit-row">
+          <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab" title="(drag pra reordenar — em breve)"></i>
           <div class="unit-icon"><i data-lucide="${iconByType[u.type] || "circle"}" class="w-4 h-4"></i></div>
-          <div class="flex-1">
+          <div class="flex-1 cursor-pointer" onclick="location.hash='#/unit-player?course=${course.id}&unit=${u.id}'">
             <div class="text-sm font-semibold text-naval">${u.order_index} · ${escapeHtml(u.title)}</div>
             <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
               <span class="flex items-center gap-1"><i data-lucide="${iconByType[u.type] || "circle"}" class="w-3 h-3"></i> ${escapeHtml(u.type)} · ${u.duration_min} min</span>
             </div>
           </div>
-          <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções" onclick="event.stopPropagation()"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+          <button data-action="edit-unit" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Editar unidade"><i data-lucide="pencil" class="w-4 h-4 text-naval"></i></button>
+          <button data-action="delete-unit" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Deletar"><i data-lucide="trash-2" class="w-4 h-4 text-danger-bd"></i></button>
         </div>`).join("");
+    }
+
+    // tabs interativas: trocar entre Conteúdo / Alunos / Configurações
+    const tabsContainer = $("#page-course-detail .flex.border-b.border-borderd");
+    if (tabsContainer && !tabsContainer.dataset.bound) {
+      tabsContainer.dataset.bound = "1";
+      tabsContainer.addEventListener("click", async (e) => {
+        const t = e.target.closest(".tab-trigger"); if (!t) return;
+        const tabs = $$("#page-course-detail .tab-trigger");
+        const idx = Array.from(tabs).indexOf(t);
+        await switchCourseDetailTab(course.id, idx);
+      });
     }
 
     // stats card real
@@ -419,6 +447,219 @@ async function renderCourseDetail() {
     }
     rerunLucide();
   } catch (e) { console.error("[course-detail]", e); }
+}
+
+async function switchCourseDetailTab(courseId, idx) {
+  $$("#page-course-detail .tab-trigger").forEach((t, i) => t.classList.toggle("active", i === idx));
+  const contentZone = $("#page-course-detail .lg\\:col-span-2 .bg-white.border.border-borderd.rounded-lg.divide-y, #page-course-detail .lg\\:col-span-2 #cd-tab-zone");
+  let zone = $("#cd-tab-zone");
+  if (!zone) {
+    // criar zone wrapper se for primeira vez
+    const list = $("#page-course-detail .bg-white.border.border-borderd.rounded-lg.divide-y");
+    if (list) {
+      list.id = "cd-tab-zone";
+      zone = list;
+    }
+  }
+  const header = $$("#page-course-detail .flex.items-center.justify-between.mb-3")[0];
+
+  if (idx === 0) {
+    // Conteúdo: re-render
+    if (header) header.style.display = "flex";
+    await renderCourseDetail();
+    return;
+  }
+  if (idx === 1) {
+    // Alunos
+    if (header) header.innerHTML = `<h2 class="text-sm font-semibold text-naval">Alunos matriculados</h2><button data-action="enroll-bulk" data-id="${courseId}" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold flex items-center gap-1.5 btn-small"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Matricular alunos</button>`;
+    const enrolls = await api(`/api/courses/${courseId}/enrollments`);
+    const users = await api("/api/users");
+    const userMap = Object.fromEntries(users.map(u => [u.id, u]));
+    if (!zone) return;
+    zone.classList.remove("divide-y", "divide-slate-100");
+    zone.className = "bg-white border border-borderd rounded-lg overflow-hidden";
+    if (enrolls.length === 0) {
+      zone.innerHTML = `<div class="p-10 text-center text-slate-500"><i data-lucide="users-x" class="w-12 h-12 mx-auto mb-2 text-slate-300"></i><p class="text-sm mb-3">Nenhum aluno matriculado ainda.</p><button data-action="enroll-bulk" data-id="${courseId}" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold">+ Matricular primeiro aluno</button></div>`;
+    } else {
+      zone.innerHTML = `<table class="data-table"><thead><tr><th>Aluno</th><th>Papel</th><th class="text-center">Progresso</th><th>Matriculado</th><th>Conclusão</th><th class="text-right">Ações</th></tr></thead><tbody>${
+        enrolls.map(e => {
+          const u = userMap[e.user_id] || { name: "?", surname: "", avatar_initials: "?" };
+          return `<tr data-enroll-id="${e.id}">
+            <td><div class="flex items-center gap-3">${avatarHtml(u.avatar_initials)}<div><div class="font-semibold text-naval">${escapeHtml(u.name)} ${escapeHtml(u.surname || "")}</div><div class="text-xs text-slate-500">${escapeHtml(u.email || "")}</div></div></div></td>
+            <td><select class="h-8 px-2 border border-borderd rounded bg-white text-xs"><option ${e.role === "Estudante" ? "selected" : ""}>Estudante</option><option ${e.role === "Professor" ? "selected" : ""}>Professor</option><option ${e.role === "Trainer" ? "selected" : ""}>Trainer</option></select></td>
+            <td class="text-center"><span class="text-sm font-bold ${e.progress_pct >= 100 ? "text-success-fg" : "text-naval"}">${e.progress_pct}%</span></td>
+            <td class="text-xs text-slate-600">${new Date(e.enrolled_at).toLocaleDateString("pt-BR")}</td>
+            <td>${e.completed_at ? `<span class="text-success-fg text-xs font-semibold">${new Date(e.completed_at).toLocaleDateString("pt-BR")}</span>` : '<span class="text-slate-400 text-xs">—</span>'}</td>
+            <td><div class="flex justify-end gap-1"><a href="#/user-detail?id=${e.user_id}" class="p-2 hover:bg-gelo rounded icon-only"><i data-lucide="eye" class="w-4 h-4 text-naval"></i></a><button data-action="unenroll" data-id="${e.id}" class="p-2 hover:bg-gelo rounded icon-only"><i data-lucide="user-minus" class="w-4 h-4 text-danger-bd"></i></button></div></td>
+          </tr>`;
+        }).join("")
+      }</tbody></table>`;
+    }
+    rerunLucide();
+    return;
+  }
+  if (idx === 2) {
+    // Configurações: abre modal direto
+    if (header) header.style.display = "none";
+    if (zone) zone.innerHTML = `<div class="p-10 text-center"><i data-lucide="settings" class="w-12 h-12 mx-auto mb-3 text-naval"></i><h3 class="text-lg font-semibold text-naval mb-1">Configurações do curso</h3><p class="text-sm text-slate-500 mb-4">Preço, capacidade, visibilidade, certificado, AI coach.</p><button data-action="course-settings" data-id="${courseId}" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold">Abrir configurações ⚙</button></div>`;
+    rerunLucide();
+    return;
+  }
+}
+
+/* ============ GROUPS PAGE ============ */
+async function renderGroups() {
+  try {
+    const groups = await api("/api/groups");
+    const sub = $("#groups-subtitle");
+    if (sub) sub.textContent = `${groups.length} ${groups.length === 1 ? "grupo" : "grupos"}`;
+    const grid = $("#groups-grid");
+    if (!grid) return;
+    if (groups.length === 0) {
+      grid.innerHTML = `<div class="col-span-3 text-center py-16 bg-white border border-borderd rounded-lg">
+        <i data-lucide="users-round" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i>
+        <h3 class="text-lg font-semibold text-naval mb-1">Sem grupos ainda</h3>
+        <p class="text-sm text-slate-500 mb-5">Crie grupos pra atribuir cursos em lote a vários utilizadores.</p>
+        <button data-action="create-group" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold">+ Criar primeiro grupo</button>
+      </div>`;
+    } else {
+      grid.innerHTML = groups.map(g => `
+        <div class="bg-white border border-borderd rounded-lg p-5 hover:shadow-md transition-shadow">
+          <div class="flex items-start justify-between mb-2">
+            <h3 class="text-base font-semibold text-naval line-clamp-1">${escapeHtml(g.name)}</h3>
+            <span class="badge ${g.status === "active" ? "badge-success" : "badge-neutral"}">${g.status}</span>
+          </div>
+          <p class="text-xs text-slate-500 line-clamp-2 mb-4 min-h-[32px]">${escapeHtml(g.description || "—")}</p>
+          <div class="flex items-center gap-4 text-xs text-slate-600 mb-4">
+            <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> <strong class="text-naval">${g.users_count}</strong> membros</span>
+            <span class="flex items-center gap-1"><i data-lucide="book-open" class="w-3.5 h-3.5"></i> <strong class="text-naval">${g.courses_count}</strong> cursos</span>
+          </div>
+          <div class="flex gap-2 pt-3 border-t border-borderd">
+            <button data-action="edit-group" data-id="${g.id}" class="flex-1 py-2 bg-naval text-white rounded text-xs font-semibold">Editar</button>
+            <button data-action="delete-group" data-id="${g.id}" class="p-2 hover:bg-danger-bg rounded icon-only" aria-label="Deletar"><i data-lucide="trash-2" class="w-4 h-4 text-danger-bd"></i></button>
+          </div>
+        </div>`).join("");
+    }
+    rerunLucide();
+  } catch (e) { console.error("[groups]", e); }
+}
+
+/* ============ ACCOUNT (settings) PAGE ============ */
+async function renderAccount() {
+  try {
+    const tabs = $$("#account-tabs .tab-trigger");
+    const activeTab = (tabs.find(t => t.classList.contains("active")) || tabs[0])?.dataset.accountTab || "portal";
+    // bind tabs
+    tabs.forEach(t => {
+      if (t.dataset.bound) return;
+      t.dataset.bound = "1";
+      t.addEventListener("click", () => {
+        tabs.forEach(x => x.classList.remove("active"));
+        t.classList.add("active");
+        renderAccountTab(t.dataset.accountTab);
+      });
+    });
+    await renderAccountTab(activeTab);
+  } catch (e) { console.error("[account]", e); }
+}
+
+async function renderAccountTab(tab) {
+  const content = $("#account-content");
+  if (!content) return;
+  if (tab === "portal") {
+    const s = await api("/api/settings/portal");
+    content.innerHTML = `
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl">
+        <h3 class="text-base font-semibold text-naval mb-1">Identidade do portal</h3>
+        <p class="text-xs text-slate-500 mb-5">Aparece no topbar, login e e-mails enviados.</p>
+        <form id="portal-form" class="space-y-4">
+          ${fld("p-name", "Nome do portal *", { value: s.site_name })}
+          ${fld("p-desc", "Descrição", { value: s.site_description || "", required: false, rows: 2 })}
+          ${fld("p-color", "Cor primária (hex)", { value: s.primary_color, hint: "Ex: #113C58 (naval Napel)" })}
+          ${fld("p-logo", "URL do logo", { value: s.logo_url || "", required: false, hint: "Deixe vazio pra usar 'NAPEL' em texto" })}
+          <div class="pt-4 border-t border-borderd flex justify-end">
+            <button type="submit" class="px-4 py-2 bg-naval text-white rounded-md text-sm font-semibold">Salvar</button>
+          </div>
+        </form>
+      </div>`;
+    document.getElementById("portal-form").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api("/api/settings/portal", { method: "PUT", body: JSON.stringify({
+          site_name: val("p-name"), site_description: val("p-desc"),
+          primary_color: val("p-color"), logo_url: val("p-logo") || null,
+        })});
+        toast("Salvo ✓");
+      } catch (err) { alert("Erro: " + err.message); }
+    };
+  } else if (tab === "categories") {
+    const cats = await api("/api/categories");
+    content.innerHTML = `
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <div><h3 class="text-base font-semibold text-naval">Categorias de curso</h3><p class="text-xs text-slate-500">${cats.length} cadastrada(s)</p></div>
+          <button data-action="create-category" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold">+ Nova categoria</button>
+        </div>
+        <div class="border border-borderd rounded">
+          ${cats.length === 0 ? '<div class="p-6 text-center text-sm text-slate-500">Sem categorias.</div>' : cats.map(c => `
+            <div class="flex items-center justify-between p-3 border-b border-borderd last:border-b-0">
+              <div><div class="text-sm font-medium text-naval">${escapeHtml(c.name)}</div><div class="text-xs text-slate-400 font-mono">${escapeHtml(c.slug)}</div></div>
+              <button onclick="(async()=>{if(confirm('Deletar categoria \\'${escapeHtml(c.name)}\\'?')){await api('/api/categories/${c.id}',{method:'DELETE'});toast('Deletada');renderAccountTab('categories');}})()" class="p-2 hover:bg-danger-bg rounded text-danger-bd"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>`).join("")}
+        </div>
+      </div>`;
+  } else if (tab === "gamification") {
+    const g = await api("/api/settings/gamification");
+    content.innerHTML = `
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl">
+        <h3 class="text-base font-semibold text-naval mb-1">Pontuação por evento</h3>
+        <p class="text-xs text-slate-500 mb-5">Define quantos pontos o aluno ganha em cada ação.</p>
+        <form id="gam-form" class="grid grid-cols-2 gap-4">
+          ${fld("g-login", "Login diário", { type: "number", value: String(g.login_points) })}
+          ${fld("g-unit", "Unidade concluída", { type: "number", value: String(g.unit_completion_points) })}
+          ${fld("g-course", "Curso completo", { type: "number", value: String(g.course_completion_points) })}
+          ${fld("g-quiz", "Quiz aprovado", { type: "number", value: String(g.quiz_pass_points) })}
+          ${fld("g-perfect", "Bônus 100% no quiz", { type: "number", value: String(g.quiz_perfect_bonus) })}
+          ${fld("g-level", "Pontos pra subir 1 nível", { type: "number", value: String(g.level_up_points) })}
+          <div class="col-span-2 pt-4 border-t border-borderd flex justify-end">
+            <button type="submit" class="px-4 py-2 bg-naval text-white rounded-md text-sm font-semibold">Salvar</button>
+          </div>
+        </form>
+      </div>`;
+    document.getElementById("gam-form").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api("/api/settings/gamification", { method: "PUT", body: JSON.stringify({
+          enabled: g.enabled,
+          login_points: parseInt(val("g-login")) || 0,
+          unit_completion_points: parseInt(val("g-unit")) || 0,
+          course_completion_points: parseInt(val("g-course")) || 0,
+          quiz_pass_points: parseInt(val("g-quiz")) || 0,
+          quiz_perfect_bonus: parseInt(val("g-perfect")) || 0,
+          level_up_points: parseInt(val("g-level")) || 1000,
+        })});
+        toast("Configuração de pontos salva ✓");
+      } catch (err) { alert("Erro: " + err.message); }
+    };
+  } else if (tab === "info") {
+    const health = await api("/api/health").catch(() => ({}));
+    content.innerHTML = `
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl">
+        <h3 class="text-base font-semibold text-naval mb-4">Sistema</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between py-2 border-b border-borderd"><span class="text-slate-500">Versão API</span><span class="font-mono">${health.version || "?"}</span></div>
+          <div class="flex justify-between py-2 border-b border-borderd"><span class="text-slate-500">Status</span><span class="font-semibold ${health.status === "ok" ? "text-success-fg" : "text-danger-fg"}">${health.status || "?"}</span></div>
+          <div class="flex justify-between py-2 border-b border-borderd"><span class="text-slate-500">Banco</span><span class="font-semibold ${health.db ? "text-success-fg" : "text-danger-fg"}">${health.db ? "conectado" : "fora"}</span></div>
+          <div class="flex justify-between py-2 border-b border-borderd"><span class="text-slate-500">Backend API</span><a href="https://api.lms.demos.napel.com.br/api/docs" target="_blank" class="text-naval font-semibold underline">Swagger ↗</a></div>
+          <div class="flex justify-between py-2 border-b border-borderd"><span class="text-slate-500">Repositório</span><a href="https://github.com/renatonapel-arch/napel-lms" target="_blank" class="text-naval font-semibold underline">GitHub ↗</a></div>
+        </div>
+        <div class="mt-6 pt-4 border-t border-borderd">
+          <h4 class="text-sm font-semibold text-danger-fg mb-2">Zona perigosa</h4>
+          <button onclick="if(confirm('ZERAR TODO O BANCO? Apaga users, cursos, progressos. Só o admin renato será mantido.')){fetch('${API_BASE}/api/admin/reset-database?token=napel2026', {method:'POST'}).then(()=>{toast('Banco zerado');setTimeout(()=>location.reload(),1500);})}" class="px-4 py-2 bg-danger-bg text-danger-fg border border-danger-bd rounded-md text-sm font-semibold">Reset banco de dados</button>
+        </div>
+      </div>`;
+  }
+  rerunLucide();
 }
 
 /* ============ LEADERBOARD PAGE ============ */
@@ -781,11 +1022,61 @@ async function renderProfile() {
         <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd"><div class="text-2xl font-extrabold text-naval">${enrollments.length}</div><div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Cursos</div></div>
         <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd col-span-2 md:col-span-1"><div class="text-2xl font-extrabold text-success-fg">${completed}</div><div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Concluídos</div></div>`;
     }
-    // tab counts
+    // tab counts + certificados
+    const certs = await api("/api/users/me/certificates").catch(() => []);
     const tabs = $$("#page-profile .tab-trigger");
     if (tabs[0]) tabs[0].textContent = "Meus cursos";
     if (tabs[1]) tabs[1].textContent = `Badges (${badges.length})`;
-    if (tabs[2]) tabs[2].textContent = `Certificados (0)`;
+    if (tabs[2]) tabs[2].textContent = `Certificados (${certs.length})`;
+    // bind click nas tabs (toggle visibility entre cursos/badges/certs)
+    if (!tabs[0]?.dataset.pbound) {
+      tabs.forEach((t, i) => {
+        if (!t) return;
+        t.dataset.pbound = "1";
+        t.addEventListener("click", () => {
+          tabs.forEach(x => x?.classList.remove("active"));
+          t.classList.add("active");
+          const coursesList = $("#page-profile .lg\\:col-span-2 .space-y-3");
+          const badgesSec = $("#page-profile .mt-8");
+          if (coursesList && badgesSec) {
+            coursesList.style.display = i === 0 ? "" : "none";
+            badgesSec.style.display = i === 1 ? "" : "none";
+            // tab "Certificados" cria zone abaixo se i===2
+            let certZone = $("#profile-cert-zone");
+            if (i === 2) {
+              if (!certZone) {
+                certZone = document.createElement("div"); certZone.id = "profile-cert-zone";
+                coursesList.parentElement.insertBefore(certZone, badgesSec);
+              }
+              certZone.style.display = "";
+              if (certs.length === 0) {
+                certZone.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="award" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><h3 class="text-sm font-semibold text-naval mb-1">Sem certificados ainda</h3><p class="text-xs text-slate-500">Conclua um curso pra ganhar o primeiro.</p></div>`;
+              } else {
+                certZone.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">${certs.map(c => `
+                  <div class="bg-white border border-borderd rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-start gap-3 mb-3">
+                      <div class="w-10 h-10 rounded-md bg-warn-bg text-warn-fg flex items-center justify-center"><i data-lucide="award" class="w-5 h-5"></i></div>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm font-semibold text-naval line-clamp-2">${escapeHtml(c.course_name || "Curso")}</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Emitido em ${new Date(c.issued_at).toLocaleDateString("pt-BR")}</div>
+                      </div>
+                    </div>
+                    <div class="text-[10px] font-mono text-slate-400 mb-3">${escapeHtml(c.code)}</div>
+                    <button data-action="view-certificate" data-id="${c.id}" class="w-full py-2 bg-naval text-white rounded text-xs font-semibold">Ver / Imprimir</button>
+                  </div>`).join("")}</div>`;
+              }
+              rerunLucide();
+            } else if (certZone) {
+              certZone.style.display = "none";
+            }
+            // "Histórico" tab (i===3) → mostra tentativas de quiz
+            if (i === 3) {
+              showProfileHistory();
+            }
+          }
+        });
+      });
+    }
     // cursos list
     const coursesList = $("#page-profile .lg\\:col-span-2 .space-y-3");
     if (coursesList && enrollments.length === 0) {
@@ -859,11 +1150,41 @@ async function renderUnitPlayer() {
     const sub = $("#page-unit-player p.text-sm.text-slate-500");
     if (sub) sub.textContent = `${unit.type} · ${unit.duration_min} min`;
 
-    // descrição "Sobre esta unidade" — substituir hardcode
+    // substitui o player + descrição por conteúdo REAL conforme tipo
+    const videoBlock = $("#page-unit-player .video-mockup");
     const descCard = $("#page-unit-player .bg-white.border.border-borderd.rounded-lg.p-5.mb-4");
+    const c = unit.content || {};
+    if (videoBlock) {
+      if (unit.type === "video" && c.video_url) {
+        const url = c.video_url;
+        // YouTube?
+        const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/);
+        if (yt) {
+          videoBlock.outerHTML = `<div class="mb-4 shadow-lg rounded-lg overflow-hidden aspect-video bg-black"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${yt[1]}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+        } else {
+          // MP4 direto
+          videoBlock.outerHTML = `<div class="mb-4 shadow-lg rounded-lg overflow-hidden aspect-video bg-black"><video class="w-full h-full" controls preload="metadata" src="${escapeHtml(url)}"></video></div>`;
+        }
+      } else if (unit.type === "text") {
+        const md = c.text_md || "Sem conteúdo.";
+        const html = window.marked ? marked.parse(md) : `<pre>${escapeHtml(md)}</pre>`;
+        videoBlock.outerHTML = `<div class="mb-4 bg-white border border-borderd rounded-lg p-6 md:p-8 prose-content"><div class="markdown">${html}</div></div>`;
+      } else if (unit.type === "pdf" && c.pdf_url) {
+        videoBlock.outerHTML = `<div class="mb-4 shadow-lg rounded-lg overflow-hidden bg-slate-100" style="height:600px"><iframe class="w-full h-full" src="${escapeHtml(c.pdf_url)}#toolbar=1"></iframe><div class="p-3 bg-white border-t border-borderd text-center"><a href="${escapeHtml(c.pdf_url)}" target="_blank" class="text-sm text-naval font-semibold">Abrir PDF em nova aba ↗</a></div></div>`;
+      } else if (unit.type === "quiz") {
+        videoBlock.outerHTML = `<div class="mb-4 bg-warn-bg border border-warn-bd rounded-lg p-6 text-center"><i data-lucide="help-circle" class="w-10 h-10 mx-auto mb-3 text-warn-fg"></i><h3 class="text-naval font-bold mb-2">Esta é uma unidade de Quiz</h3><a href="#/quiz?course=${courseId}&unit=${unit.id}" class="inline-block px-4 py-2 bg-naval text-white rounded-md text-sm font-semibold">Iniciar quiz →</a></div>`;
+      } else {
+        videoBlock.outerHTML = `<div class="mb-4 bg-slate-100 border border-borderd rounded-lg p-12 text-center text-slate-500"><i data-lucide="alert-circle" class="w-10 h-10 mx-auto mb-2"></i><p class="text-sm">Conteúdo desta unidade ainda não foi configurado.</p></div>`;
+      }
+    }
     if (descCard) {
-      const txt = unit.content?.text_md || `Esta é uma unidade do tipo ${unit.type}. Conteúdo será exibido aqui conforme o tipo (vídeo, texto, quiz, PDF, SCORM).`;
-      descCard.innerHTML = `<h3 class="text-sm font-semibold text-naval mb-2">Sobre esta unidade</h3><p class="text-sm text-slate-600 leading-relaxed">${escapeHtml(txt).slice(0, 600)}</p>`;
+      let about = "";
+      if (unit.type === "video") about = c.video_url ? `Vídeo · ${unit.duration_min} min · ${(c.video_url.match(/youtube|youtu\.be/) ? "YouTube" : "MP4")}` : "Vídeo sem URL configurada.";
+      else if (unit.type === "text") about = `Leitura · ${unit.duration_min} min`;
+      else if (unit.type === "quiz") about = `Quiz · ${(c.questions || []).length} pergunta(s) · aprovação ≥${c.passing_score || 70}% · ${c.max_attempts || 3} tentativas`;
+      else if (unit.type === "pdf") about = `PDF · ${unit.duration_min} min`;
+      else about = `${unit.type} · ${unit.duration_min} min`;
+      descCard.innerHTML = `<h3 class="text-sm font-semibold text-naval mb-2">Sobre esta unidade</h3><p class="text-sm text-slate-600">${escapeHtml(about)}</p>`;
     }
 
     // painel direito: progresso real
@@ -925,6 +1246,8 @@ const routes = {
   "user-detail": renderUserDetail,
   "profile": renderProfile,
   "users": renderUsers,
+  "groups": renderGroups,
+  "account": renderAccount,
 };
 async function handleRoute() {
   // Guard: se não há user/token, força login antes de tentar render
