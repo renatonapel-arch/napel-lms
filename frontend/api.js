@@ -4,9 +4,10 @@
  */
 
 const API_BASE = (() => {
-  // se em local file:// → aponta pro localhost
   if (location.protocol === "file:") return "http://localhost:8000";
-  // em produção/staging, mesma origem
+  // produção: api em subdomínio dedicado (evita gambiarra de proxy DNS interno)
+  if (location.hostname === "lms.demos.napel.com.br") return "https://api.lms.demos.napel.com.br";
+  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") return "http://localhost:8000";
   return location.origin;
 })();
 
