@@ -131,6 +131,16 @@ function avatarHtml(initials, size = "") {
 const SEED_CLASS = ["skeleton-thumb", "skeleton-thumb-2", "skeleton-thumb-3", "skeleton-thumb-4", "skeleton-thumb-5"];
 function thumbClass(seed) { return SEED_CLASS[(seed - 1) % SEED_CLASS.length] || "skeleton-thumb"; }
 function rerunLucide() { if (window.lucide) window.lucide.createIcons(); }
+function relativeTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso); const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60) return "agora mesmo";
+  if (diff < 3600) return `há ${Math.floor(diff/60)} min`;
+  if (diff < 86400) return `há ${Math.floor(diff/3600)}h`;
+  if (diff < 604800) return `há ${Math.floor(diff/86400)}d`;
+  return d.toLocaleDateString("pt-BR");
+}
 
 /* ============ TOPBAR / USER MENU ============ */
 function renderTopbar(user) {
@@ -151,22 +161,53 @@ function renderTopbar(user) {
         <button onclick="doLogout()" class="block w-full text-left px-4 py-2 text-sm text-danger-fg hover:bg-danger-bg">Sair</button>
       </div>
     </div>`;
+  // remove badges hardcoded de "Mensagens 3" e "Notificações ●" (sem endpoint ainda)
+  document.querySelectorAll('.main-shifted header button[aria-label="Mensagens (3 não lidas)"] span').forEach(el => el.remove());
+  document.querySelectorAll('.main-shifted header button[aria-label="Notificações"] span').forEach(el => el.remove());
 }
 
 /* ============ DASHBOARD ============ */
 async function renderDashboard() {
   try {
-    const [overview, leaderboard, courses] = await Promise.all([
+    const [overview, leaderboard, topCourses, timeline, activity] = await Promise.all([
       api("/api/dashboard/overview"),
       api("/api/leaderboard?limit=5"),
-      api("/api/courses?status=active"),
+      api("/api/dashboard/top-courses?limit=5"),
+      api("/api/dashboard/timeline?limit=8"),
+      api("/api/dashboard/portal-activity?days=7"),
     ]);
 
     // header "Bem-vindo, RENATO!"
     const h1 = $("#page-dashboard h1");
     if (h1) h1.innerHTML = `<i data-lucide="party-popper" class="w-7 h-7 text-warn-bd"></i> Bem-vindo, ${escapeHtml(state.user.name.toUpperCase())}!`;
     const subtitle = $("#page-dashboard h1 + p");
-    if (subtitle) subtitle.textContent = `${new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} · ${overview.users_active} utilizadores ativos · ${overview.courses_total} cursos`;
+    if (subtitle) subtitle.textContent = `${new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} · ${overview.users_active} ${overview.users_active === 1 ? "utilizador ativo" : "utilizadores ativos"} · ${overview.courses_total} ${overview.courses_total === 1 ? "curso" : "cursos"}`;
+
+    // sidebar badge "Utilizadores" - atualiza count
+    const sideUsers = document.querySelector('#sidebar a[data-nav="user-detail"] span.ml-auto');
+    if (sideUsers) sideUsers.textContent = overview.users_active;
+
+    // gráfico Atividade no portal
+    const chartWidget = $$("#page-dashboard .widget")[0];
+    if (chartWidget) {
+      const chart = chartWidget.querySelector(".bar-chart");
+      if (chart) {
+        const maxL = Math.max(1, ...activity.map(a => a.logins));
+        const maxC = Math.max(1, ...activity.map(a => a.completed));
+        const days = ["dom","seg","ter","qua","qui","sex","sáb"];
+        chart.innerHTML = activity.map(a => {
+          const lh = Math.round((a.logins / Math.max(maxL, maxC)) * 90);
+          const ch = Math.round((a.completed / Math.max(maxL, maxC)) * 90);
+          const isToday = a.date === new Date().toISOString().slice(0, 10);
+          return `<div class="flex flex-col items-center flex-1 gap-1" title="${days[new Date(a.date).getDay()]} ${a.day_num}: ${a.logins} logins · ${a.completed} concluídos">
+            ${a.logins > 0 ? `<div class="bar bar-logins" style="height:${lh}%"></div>` : ""}
+            ${a.completed > 0 ? `<div class="bar bar-completed" style="height:${ch}%; margin-top:2px"></div>` : ""}
+            ${a.logins === 0 && a.completed === 0 ? `<div style="height:4px"></div>` : ""}
+            <span class="text-[10px] text-slate-500 ${isToday ? "font-bold" : ""}">${days[new Date(a.date).getDay()]} ${a.day_num}</span>
+          </div>`;
+        }).join("");
+      }
+    }
 
     // KPIs (Visão Geral widget — 3º na grid)
     const kpiWidget = $$("#page-dashboard .widget")[2];
@@ -184,29 +225,61 @@ async function renderDashboard() {
     const lbWidget = $$("#page-dashboard .widget")[5];
     if (lbWidget) {
       const body = lbWidget.querySelector(".widget-body");
-      const medals = ["🥇", "🥈", "🥉"];
-      body.innerHTML = leaderboard.map((row, i) => `
-        <div class="py-3 flex items-center gap-3 ${i < leaderboard.length - 1 ? "border-b border-slate-100" : ""}">
-          <div class="w-8 text-center text-sm font-bold ${i === 0 ? "text-warn-bd" : i === 1 ? "text-slate-500" : i === 2 ? "text-[#B45309]" : "text-slate-400"}">${medals[i] || row.rank}</div>
-          ${avatarHtml(row.avatar_initials)}
-          <div class="flex-1"><div class="text-sm font-semibold text-naval">${escapeHtml(row.name)} ${escapeHtml(row.surname)}</div><div class="text-xs text-slate-500">${row.badges_count} badges · Nível ${row.level}</div></div>
-          <div class="text-right"><div class="text-sm font-bold text-naval">${row.points.toLocaleString("pt-BR")}</div><div class="text-[10px] text-slate-500 uppercase">pontos</div></div>
-        </div>`).join("");
+      if (leaderboard.length === 0) {
+        body.innerHTML = `<div class="text-center py-12 text-slate-500"><i data-lucide="trophy" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Ainda sem participantes. Conforme alunos ganham pontos, o ranking aparece aqui.</p></div>`;
+      } else {
+        const medals = ["🥇", "🥈", "🥉"];
+        body.innerHTML = leaderboard.map((row, i) => `
+          <div class="py-3 flex items-center gap-3 ${i < leaderboard.length - 1 ? "border-b border-slate-100" : ""}">
+            <div class="w-8 text-center text-sm font-bold ${i === 0 ? "text-warn-bd" : i === 1 ? "text-slate-500" : i === 2 ? "text-[#B45309]" : "text-slate-400"}">${medals[i] || row.rank}</div>
+            ${avatarHtml(row.avatar_initials)}
+            <div class="flex-1"><div class="text-sm font-semibold text-naval">${escapeHtml(row.name)} ${escapeHtml(row.surname)}</div><div class="text-xs text-slate-500">${row.badges_count} ${row.badges_count === 1 ? "badge" : "badges"} · Nível ${row.level}</div></div>
+            <div class="text-right"><div class="text-sm font-bold text-naval">${row.points.toLocaleString("pt-BR")}</div><div class="text-[10px] text-slate-500 uppercase">pontos</div></div>
+          </div>`).join("");
+      }
     }
 
-    // Cursos mais acessados (5º widget)
+    // Cronologia (4º widget)
+    const timelineWidget = $$("#page-dashboard .widget")[3];
+    if (timelineWidget) {
+      const body = timelineWidget.querySelector(".widget-body");
+      if (timeline.length === 0) {
+        body.innerHTML = `<div class="text-center py-12 text-slate-500"><i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Sem atividade ainda. Faça login, complete uma unidade ou ganhe uma badge pra começar a cronologia.</p></div>`;
+      } else {
+        const iconByKind = { login: { color: "#7DA4C6", lucide: "log-in" }, course_completed: { color: "#10B981", lucide: "check-circle-2" }, badge_earned: { color: "#F59E0B", lucide: "trophy" } };
+        body.innerHTML = timeline.map((ev, i) => {
+          const ic = iconByKind[ev.kind] || { color: "#64748B", lucide: "circle" };
+          const isYou = ev.actor_id === state.user.id;
+          return `
+            <div class="py-3 flex items-start gap-3 ${i < timeline.length - 1 ? "border-b border-slate-100" : ""}">
+              <div class="avatar" style="background: linear-gradient(135deg, ${ic.color}, #113C58)">${escapeHtml(ev.actor_initials || "?")}</div>
+              <div class="flex-1 text-sm">
+                <div><span class="font-semibold text-naval">${isYou ? "Você" : escapeHtml(ev.actor_name)}</span> <span class="text-slate-600">${escapeHtml(ev.text)}</span></div>
+                <div class="text-xs text-slate-400 mt-0.5">${relativeTime(ev.ts)}</div>
+              </div>
+              <i data-lucide="${ic.lucide}" class="w-4 h-4 mt-1" style="color:${ic.color}"></i>
+            </div>`;
+        }).join("");
+      }
+    }
+
+    // Cursos mais acessados (5º widget) — agora usa /top-courses real
     const topCoursesWidget = $$("#page-dashboard .widget")[4];
     if (topCoursesWidget) {
-      const sorted = courses.slice(0, 5).map(c => ({ ...c, pct: Math.floor((c.enrollments_count / Math.max(overview.users_active, 1)) * 100) }));
       const body = topCoursesWidget.querySelector(".widget-body");
-      body.innerHTML = sorted.map((c, i) => `
-        <div class="py-3 ${i < sorted.length - 1 ? "border-b border-slate-100" : ""}">
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">${escapeHtml(c.name)}</div>
-            <span class="text-xs text-slate-500 font-semibold">${c.pct}%</span>
-          </div>
-          <div class="progress-bar"><div class="progress-bar-fill" style="width: ${c.pct}%"></div></div>
-        </div>`).join("");
+      if (topCourses.length === 0) {
+        body.innerHTML = `<div class="text-center py-12 text-slate-500"><i data-lucide="book-x" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Sem cursos ativos. Crie o primeiro pra ver as métricas aqui.</p></div>`;
+      } else {
+        body.innerHTML = topCourses.map((c, i) => `
+          <div class="py-3 ${i < topCourses.length - 1 ? "border-b border-slate-100" : ""}">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">${escapeHtml(c.name)}</div>
+              <span class="text-xs text-slate-500 font-semibold">${c.pct}%</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width: ${c.pct}%"></div></div>
+            <div class="text-[10px] text-slate-400 mt-1">${c.enrollments} ${c.enrollments === 1 ? "matriculado" : "matriculados"}</div>
+          </div>`).join("");
+      }
     }
 
     rerunLucide();
@@ -219,6 +292,26 @@ async function renderCourses() {
     const courses = await api("/api/courses");
     const grid = $("#page-courses .grid.grid-cols-1");
     if (!grid) return;
+    // subtítulo dinâmico
+    const subtitle = $("#page-courses h1 + p");
+    if (subtitle) {
+      const active = courses.filter(c => c.status === "active").length;
+      const totalEnroll = courses.reduce((s, c) => s + c.enrollments_count, 0);
+      const completed = "—"; // sem endpoint específico de completed/mês ainda
+      subtitle.textContent = `${courses.length} ${courses.length === 1 ? "curso" : "cursos"} · ${active} ${active === 1 ? "ativo" : "ativos"} · ${totalEnroll} matrículas total`;
+    }
+    if (courses.length === 0) {
+      grid.innerHTML = `<div class="col-span-3 text-center py-16">
+        <i data-lucide="book-x" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i>
+        <h3 class="text-lg font-semibold text-naval mb-1">Nenhum curso ainda</h3>
+        <p class="text-sm text-slate-500 mb-5">Comece criando o primeiro curso pra equipe.</p>
+        <button data-action="create-course" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold">+ Adicionar curso</button>
+      </div>`;
+      const footerCount = $("#page-courses .border-t.border-borderd .text-sm.text-slate-500");
+      if (footerCount) footerCount.textContent = "Sem cursos cadastrados";
+      rerunLucide();
+      return;
+    }
     grid.innerHTML = courses.map(c => `
       <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="location.hash='#/course-detail?id=${c.id}'">
         <div class="${thumbClass(c.thumbnail_seed)} aspect-video relative">
@@ -301,15 +394,28 @@ async function renderCourseDetail() {
         </div>`).join("");
     }
 
-    // stats card
+    // stats card real
+    const stats = await api(`/api/courses/${courseId}/stats`).catch(() => null);
     const cards = $$("#page-course-detail aside .widget");
-    if (cards[1]) {
+    if (cards[1] && stats) {
       const body = cards[1].querySelector(".widget-body");
+      const horas = Math.floor(stats.duracao_min / 60); const mins = stats.duracao_min % 60;
       body.innerHTML = `
-        <div class="kpi-row"><div class="kpi-label">Matriculados</div><div class="kpi-value">${course.enrollments_count}</div></div>
-        <div class="kpi-row"><div class="kpi-label">Units</div><div class="kpi-value">${course.units_count}</div></div>
-        <div class="kpi-row"><div class="kpi-label">Categoria</div><div class="text-sm font-semibold text-naval">${escapeHtml(course.category)}</div></div>
-        ${course.instructor ? `<div class="kpi-row"><div class="kpi-label">Instrutor</div><div class="text-sm font-semibold text-naval">${escapeHtml(course.instructor.name)} ${escapeHtml(course.instructor.surname)}</div></div>` : ""}`;
+        <div class="kpi-row"><div class="kpi-label">Matriculados</div><div class="kpi-value">${stats.matriculados}</div></div>
+        <div class="kpi-row"><div class="kpi-label">Concluíram</div><div class="kpi-value text-success-fg">${stats.concluiram}</div></div>
+        <div class="kpi-row"><div class="kpi-label">Taxa de conclusão</div><div class="kpi-value ${stats.taxa_conclusao_pct >= 70 ? "text-success-fg" : "text-naval"}">${stats.taxa_conclusao_pct}%</div></div>
+        <div class="kpi-row"><div class="kpi-label">Nota média (quiz)</div><div class="kpi-value">${stats.nota_media != null ? stats.nota_media : "—"}</div></div>
+        <div class="kpi-row"><div class="kpi-label">Duração total</div><div class="kpi-value">${horas > 0 ? `${horas}h ${mins}m` : `${mins}m`}</div></div>`;
+    }
+
+    // tab counts
+    const tabs = $$("#page-course-detail .tab-trigger");
+    if (tabs[0]) tabs[0].textContent = `Conteúdo (${course.units_count})`;
+    if (tabs[1]) tabs[1].textContent = `Alunos (${course.enrollments_count})`;
+    // empty state pra units
+    if ((course.units || []).length === 0) {
+      const unitsContainer = $("#page-course-detail .bg-white.border.border-borderd.rounded-lg.divide-y");
+      if (unitsContainer) unitsContainer.innerHTML = `<div class="p-10 text-center text-slate-500"><i data-lucide="layers" class="w-12 h-12 mx-auto mb-2 text-slate-300"></i><p class="text-sm mb-3">Nenhuma unidade neste curso ainda.</p><button data-action="create-unit" data-id="${course.id}" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold">+ Adicionar primeira unidade</button></div>`;
     }
     rerunLucide();
   } catch (e) { console.error("[course-detail]", e); }
@@ -319,7 +425,35 @@ async function renderCourseDetail() {
 async function renderLeaderboard() {
   try {
     const rows = await api("/api/leaderboard");
-    if (rows.length < 3) return;
+    // subtítulo dinâmico
+    const subtitle = $("#page-leaderboard h1 + p");
+    if (subtitle) subtitle.textContent = `${rows.length} ${rows.length === 1 ? "participante" : "participantes"} · pontuação acumulada`;
+    if (rows.length === 0) {
+      const podium = $("#page-leaderboard .grid.grid-cols-3");
+      if (podium) podium.outerHTML = `<div class="text-center py-16 bg-white border border-borderd rounded-lg"><i data-lucide="trophy" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i><h3 class="text-lg font-semibold text-naval mb-1">Sem ranking ainda</h3><p class="text-sm text-slate-500">Conforme alunos ganham pontos completando units e quizzes, o ranking aparece aqui.</p></div>`;
+      const table = $("#page-leaderboard .bg-white.border.border-borderd.rounded-lg.overflow-hidden");
+      if (table) table.style.display = "none";
+      rerunLucide();
+      return;
+    }
+    if (rows.length < 3) {
+      // pódio precisa de 3 — mostra só tabela
+      const podium = $("#page-leaderboard .grid.grid-cols-3");
+      if (podium) podium.style.display = "none";
+      const tbody = $("#page-leaderboard .data-table tbody");
+      if (tbody) {
+        tbody.innerHTML = rows.map(r => `<tr ${r.user_id === state.user.id ? 'class="bg-gelo"' : ""}>
+          <td class="font-bold ${r.user_id === state.user.id ? "text-naval" : "text-slate-500"}">${r.rank}</td>
+          <td><div class="flex items-center gap-3">${avatarHtml(r.avatar_initials)}<div><div class="font-semibold text-naval">${escapeHtml(r.name)} ${escapeHtml(r.surname)} ${r.user_id === state.user.id ? '<span class="badge badge-success text-[9px]">VOCÊ</span>' : ""}</div></div></div></td>
+          <td class="hidden md:table-cell"><span class="badge badge-info">${escapeHtml(r.branch)}</span></td>
+          <td class="text-right font-bold text-naval">${r.points.toLocaleString("pt-BR")}</td>
+          <td class="hidden sm:table-cell text-center">${r.badges_count}</td>
+          <td class="hidden lg:table-cell text-xs text-slate-500">Nível ${r.level}</td>
+        </tr>`).join("");
+      }
+      rerunLucide();
+      return;
+    }
     const podium = $("#page-leaderboard .grid.grid-cols-3");
     if (podium) {
       podium.querySelectorAll(".text-xs.font-semibold.text-naval, .text-sm.font-bold.text-naval").forEach((el, idx) => {
@@ -369,8 +503,31 @@ async function renderLeaderboard() {
 async function renderMatrix() {
   try {
     const data = await api("/api/reports/training-matrix");
+    // subtítulo dinâmico
+    const subtitle = $("#page-matrix h1 + p");
+    if (subtitle) subtitle.textContent = `Visão pivot · ${data.users.length} ${data.users.length === 1 ? "utilizador" : "utilizadores"} × ${data.courses.length} ${data.courses.length === 1 ? "curso" : "cursos"}`;
     const table = $("#page-matrix .matrix-table");
     if (!table) return;
+    if (data.users.length === 0 || data.courses.length === 0) {
+      const wrap = $("#page-matrix .matrix-wrap");
+      if (wrap) wrap.innerHTML = `<div class="text-center py-16 px-4">
+        <i data-lucide="grid-3x3" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i>
+        <h3 class="text-lg font-semibold text-naval mb-1">Matriz vazia</h3>
+        <p class="text-sm text-slate-500 mb-4">${data.users.length === 0 ? "Sem utilizadores" : "Sem cursos"}. Cadastre antes de ver a matriz de formação.</p>
+      </div>`;
+      // KPI cards: zerar
+      const kpiCards = $$("#page-matrix .grid.grid-cols-2.lg\\:grid-cols-4 .widget-body");
+      if (kpiCards.length >= 4) {
+        kpiCards[0].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Conclusão geral</div><div class="text-xl font-extrabold text-slate-400">—</div>`;
+        kpiCards[1].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Top vendedor</div><div class="text-base font-bold text-slate-400">—</div>`;
+        kpiCards[2].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Em atraso</div><div class="text-xl font-extrabold text-slate-400">—</div>`;
+        kpiCards[3].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Curso menos engajado</div><div class="text-base font-bold text-slate-400">—</div>`;
+      }
+      const footer = $("#page-matrix .border-t.border-borderd.p-3 .text-slate-500:nth-child(2)");
+      if (footer) footer.textContent = `0 utilizadores · 0 cursos`;
+      rerunLucide();
+      return;
+    }
     const thead = table.querySelector("thead tr");
     thead.innerHTML = `
       <th class="user-header">Utilizadores <i data-lucide="arrow-up" class="w-3 h-3 inline ml-1"></i></th>
@@ -390,6 +547,34 @@ async function renderMatrix() {
     // contagem footer
     const counter = $$("#page-matrix .border-t.border-borderd.p-3 .text-slate-500")[1];
     if (counter) counter.textContent = `${data.users.length} utilizadores · ${data.courses.length} cursos`;
+    // KPI cards reais
+    const totalCells = data.users.length * data.courses.length;
+    let completedN = 0;
+    const userScores = {};
+    const courseEng = {};
+    for (const u of data.users) {
+      userScores[u.id] = 0;
+      for (const c of data.courses) {
+        if (!(c.id in courseEng)) courseEng[c.id] = { started: 0, name: c.name };
+        const s = data.cells[u.id][c.id] || "empty";
+        if (s === "completed") { completedN++; userScores[u.id]++; courseEng[c.id].started++; }
+        else if (s === "in_progress" || s === "started") courseEng[c.id].started++;
+      }
+    }
+    const overallPct = totalCells ? Math.round(completedN * 100 / totalCells) : 0;
+    const topUserId = Object.keys(userScores).sort((a, b) => userScores[b] - userScores[a])[0];
+    const topUser = data.users.find(u => u.id == topUserId);
+    const topPct = topUser ? Math.round(userScores[topUserId] * 100 / data.courses.length) : 0;
+    const overdue = data.users.filter(u => userScores[u.id] === 0).length;
+    const leastCourse = Object.values(courseEng).sort((a, b) => a.started - b.started)[0];
+
+    const kpiCards = $$("#page-matrix .grid.grid-cols-2.lg\\:grid-cols-4 .widget-body");
+    if (kpiCards.length >= 4) {
+      kpiCards[0].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Conclusão geral</div><div class="text-xl font-extrabold ${overallPct >= 70 ? "text-success-fg" : "text-naval"}">${overallPct}%</div><div class="text-[11px] text-slate-500 mt-0.5">${completedN} de ${totalCells} cél. concluídas</div>`;
+      kpiCards[1].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Top vendedor</div><div class="text-base font-bold text-naval line-clamp-1">${topUser ? escapeHtml(topUser.name) + " · " + topPct + "%" : "—"}</div><div class="text-[11px] text-slate-500 mt-0.5">${topUser ? userScores[topUserId] + " de " + data.courses.length + " cursos" : ""}</div>`;
+      kpiCards[2].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sem progresso</div><div class="text-xl font-extrabold ${overdue > 0 ? "text-warn-fg" : "text-success-fg"}">${overdue} ${overdue === 1 ? "user" : "users"}</div><div class="text-[11px] text-slate-500 mt-0.5">zero cursos concluídos</div>`;
+      kpiCards[3].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Curso menos engajado</div><div class="text-base font-bold text-naval line-clamp-1">${leastCourse ? escapeHtml(leastCourse.name.slice(0, 30)) : "—"}</div><div class="text-[11px] text-slate-500 mt-0.5">${leastCourse ? leastCourse.started + " de " + data.users.length + " iniciaram" : ""}</div>`;
+    }
     rerunLucide();
   } catch (e) { console.error("[matrix]", e); }
 }
@@ -469,6 +654,38 @@ async function renderProfile() {
       api("/api/users/me/enrollments"),
       api(`/api/users/${state.user.id}/badges`),
     ]);
+    // sub-header dados (email + branch)
+    const subHeader = $("#page-profile h1 + .text-sm");
+    if (subHeader) subHeader.innerHTML = `
+      <span class="badge badge-info"><i data-lucide="shield-check" class="w-3 h-3"></i> ${escapeHtml(me.user_type)}</span>
+      <span>·</span>
+      <span class="flex items-center gap-1"><i data-lucide="mail" class="w-3.5 h-3.5"></i> ${escapeHtml(me.email)}</span>
+      <span class="hidden md:inline">·</span>
+      <span class="hidden md:flex items-center gap-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> ${escapeHtml(me.branch)}</span>`;
+    // sidebar Informações + Próximo nível dinâmicos
+    const infoWidget = $$("#page-profile aside .widget")[0];
+    if (infoWidget) {
+      const body = infoWidget.querySelector(".widget-body");
+      body.innerHTML = `
+        <div class="kpi-row"><div class="kpi-label"><i data-lucide="user" class="w-4 h-4 text-ceu"></i> Login</div><div class="text-sm font-mono font-semibold text-naval">${escapeHtml(me.login)}</div></div>
+        <div class="kpi-row"><div class="kpi-label"><i data-lucide="map-pin" class="w-4 h-4 text-ceu"></i> Filial</div><div class="text-sm font-semibold text-naval">${escapeHtml(me.branch)}</div></div>
+        <div class="kpi-row"><div class="kpi-label"><i data-lucide="clock" class="w-4 h-4 text-ceu"></i> Fuso</div><div class="text-sm font-semibold text-naval">${escapeHtml(me.timezone || "America/Sao_Paulo")}</div></div>
+        <div class="kpi-row"><div class="kpi-label"><i data-lucide="languages" class="w-4 h-4 text-ceu"></i> Idioma</div><div class="text-sm font-semibold text-naval">${escapeHtml(me.locale || "pt-BR")}</div></div>
+        <div class="kpi-row"><div class="kpi-label"><i data-lucide="log-in" class="w-4 h-4 text-ceu"></i> Último acesso</div><div class="text-sm font-semibold text-success-fg">${me.last_login ? relativeTime(me.last_login) : "—"}</div></div>`;
+    }
+    const nextWidget = $$("#page-profile aside .widget")[1];
+    if (nextWidget) {
+      const body = nextWidget.querySelector(".widget-body");
+      const nextThreshold = me.level * 1000;
+      const pctToNext = Math.min(100, Math.round((me.points / nextThreshold) * 100));
+      body.innerHTML = `
+        <div class="flex items-center justify-between text-xs mb-2">
+          <span class="font-semibold text-naval">Nível ${me.level}</span>
+          <span class="text-slate-500">${me.points.toLocaleString("pt-BR")} / ${nextThreshold.toLocaleString("pt-BR")} pts</span>
+        </div>
+        <div class="progress-bar mb-3"><div class="progress-bar-fill" style="width: ${pctToNext}%"></div></div>
+        <p class="text-xs text-slate-500">Faltam <strong class="text-naval">${Math.max(0, nextThreshold - me.points).toLocaleString("pt-BR")} pts</strong> para o Nível ${me.level + 1}.</p>`;
+    }
     const h1 = $("#page-profile h1");
     if (h1) h1.textContent = `${me.name.toUpperCase()} ${me.surname.toUpperCase()}`;
     const av = $("#page-profile .avatar.avatar-lg");
@@ -536,14 +753,58 @@ async function renderProfile() {
 async function renderUnitPlayer() {
   try {
     const qs = new URLSearchParams(location.hash.split("?")[1] || "");
-    const unitId = qs.get("unit");
-    const courseId = qs.get("course");
-    if (!unitId) return;
-    const unit = await api(`/api/units/${unitId}`);
+    const unitId = qs.get("unit"); const courseId = qs.get("course");
+    if (!unitId || !courseId) return;
+    const [unit, allUnits, myEnrolls] = await Promise.all([
+      api(`/api/units/${unitId}`),
+      api(`/api/courses/${courseId}/units`),
+      api("/api/users/me/enrollments").catch(() => []),
+    ]);
+    const enroll = myEnrolls.find(e => e.course_id === parseInt(courseId));
+    const progressPct = enroll ? enroll.progress_pct : 0;
+    const completedCount = Math.round((progressPct / 100) * allUnits.length);
+
     const h1 = $("#page-unit-player h1");
     if (h1) h1.textContent = `${unit.order_index} · ${unit.title}`;
     const sub = $("#page-unit-player p.text-sm.text-slate-500");
     if (sub) sub.textContent = `${unit.type} · ${unit.duration_min} min`;
+
+    // descrição "Sobre esta unidade" — substituir hardcode
+    const descCard = $("#page-unit-player .bg-white.border.border-borderd.rounded-lg.p-5.mb-4");
+    if (descCard) {
+      const txt = unit.content?.text_md || `Esta é uma unidade do tipo ${unit.type}. Conteúdo será exibido aqui conforme o tipo (vídeo, texto, quiz, PDF, SCORM).`;
+      descCard.innerHTML = `<h3 class="text-sm font-semibold text-naval mb-2">Sobre esta unidade</h3><p class="text-sm text-slate-600 leading-relaxed">${escapeHtml(txt).slice(0, 600)}</p>`;
+    }
+
+    // painel direito: progresso real
+    const progWidget = $$("#page-unit-player aside .widget")[0];
+    if (progWidget) {
+      progWidget.innerHTML = `
+        <div class="widget-header">
+          <h3 class="widget-title">Progresso do curso</h3>
+          <span class="text-xs font-bold ${progressPct >= 100 ? "text-success-fg" : "text-naval"}">${progressPct}%</span>
+        </div>
+        <div class="px-5 pb-4">
+          <div class="progress-bar"><div class="progress-bar-fill" style="width: ${progressPct}%"></div></div>
+          <p class="text-xs text-slate-500 mt-2">${completedCount} de ${allUnits.length} ${allUnits.length === 1 ? "unidade" : "unidades"}${enroll ? "" : " · não matriculado"}</p>
+        </div>`;
+    }
+
+    // painel direito: lista de units real
+    const listWidget = $$("#page-unit-player aside .widget")[1];
+    if (listWidget) {
+      const iconByType = { video: "video", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
+      const list = listWidget.querySelector(".px-2.py-2") || listWidget.querySelector(".widget-body") || listWidget;
+      list.innerHTML = allUnits.map(u => {
+        const isCurrent = u.id === parseInt(unitId);
+        const isCompleted = false; // não temos endpoint per-unit completion ainda
+        return `<a href="#/unit-player?course=${courseId}&unit=${u.id}" class="unit-row ${isCurrent ? "current" : ""}" style="text-decoration:none">
+          <div class="unit-icon" ${isCurrent ? 'style="background:#FEF3C7;color:#92400E"' : ""}><i data-lucide="${isCurrent ? "play" : iconByType[u.type] || "circle"}" class="w-4 h-4"></i></div>
+          <div class="flex-1 min-w-0"><div class="text-xs font-semibold ${isCurrent ? "text-naval" : "text-slate-500"} truncate">${u.order_index} · ${escapeHtml(u.title)}</div><div class="text-[10px] ${isCurrent ? "text-slate-500" : "text-slate-400"}">${escapeHtml(u.type)} · ${u.duration_min} min</div></div>
+        </a>`;
+      }).join("");
+    }
+
     // botão "Marcar como concluído"
     const btn = $$('#page-unit-player button').find(b => /Marcar como conclu/i.test(b.textContent));
     if (btn) {
@@ -554,8 +815,8 @@ async function renderUnitPlayer() {
           btn.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4"></i> Concluída ✓';
           btn.classList.add("bg-success-bd", "text-white");
           rerunLucide();
-          // recarrega perfil em background pra refletir pontos novos
           if (state.user) { state.user = await api("/api/auth/me"); localStorage.setItem(USER_KEY, JSON.stringify(state.user)); }
+          toast("Unidade concluída! +pontos", "success");
         } catch (e) { alert("Erro: " + e.message); btn.disabled = false; btn.textContent = "Tentar novamente"; }
       };
     }

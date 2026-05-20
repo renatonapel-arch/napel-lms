@@ -1130,58 +1130,6 @@ tailwind.config = {
         </button>
       </div>
 
-      <!-- estado pós-quiz (demonstração visual) -->
-      <div class="mt-12 pt-8 border-t border-dashed border-borderd">
-        <div class="text-xs uppercase tracking-widest text-slate-400 mb-3 text-center">⤴ Demonstração: tela de resultado pós-quiz</div>
-
-        <div class="bg-white border border-borderd rounded-lg overflow-hidden">
-          <div class="bg-success-bg p-6 text-center border-b border-success-bd">
-            <div class="w-16 h-16 bg-success-bd text-white rounded-full mx-auto flex items-center justify-center mb-3">
-              <i data-lucide="check" class="w-8 h-8"></i>
-            </div>
-            <h3 class="text-2xl font-bold text-success-fg mb-1">8 / 10 — Aprovado!</h3>
-            <p class="text-sm text-success-fg">Sua melhor nota: 80% · necessário ≥70%</p>
-          </div>
-
-          <div class="p-6">
-            <h4 class="text-sm font-semibold text-naval mb-3">Resumo das respostas</h4>
-            <div class="space-y-2">
-              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
-                <i data-lucide="check-circle-2" class="w-5 h-5 text-success-bd"></i>
-                <span class="text-sm flex-1">Pergunta 1: Diagnóstico antes de oferecer</span>
-                <span class="text-xs text-slate-500">+10 pts</span>
-              </div>
-              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
-                <i data-lucide="check-circle-2" class="w-5 h-5 text-success-bd"></i>
-                <span class="text-sm flex-1">Pergunta 2: Escuta ativa do cliente</span>
-                <span class="text-xs text-slate-500">+10 pts</span>
-              </div>
-              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
-                <i data-lucide="check-circle-2" class="w-5 h-5 text-success-bd"></i>
-                <span class="text-sm flex-1">Pergunta 3: Resposta a objeção de preço</span>
-                <span class="text-xs text-slate-500">+10 pts</span>
-              </div>
-              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
-                <i data-lucide="x-circle" class="w-5 h-5 text-danger-bd"></i>
-                <span class="text-sm flex-1">Pergunta 4: Identificação de comprador técnico</span>
-                <span class="text-xs text-danger-fg font-semibold">incorreto</span>
-              </div>
-              <div class="text-xs text-slate-500 pt-2">… +6 perguntas (5 corretas, 1 incorreta)</div>
-            </div>
-
-            <div class="mt-6 pt-6 border-t border-borderd flex flex-col sm:flex-row gap-3 justify-between items-center">
-              <div class="flex items-center gap-2 text-sm">
-                <i data-lucide="award" class="w-5 h-5 text-warn-bd"></i>
-                <span class="text-naval"><strong>+80 pontos</strong> ganhos · badge <strong>"Quiz Master"</strong> desbloqueada</span>
-              </div>
-              <div class="flex gap-2 flex-col sm:flex-row">
-                <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4"></i> Feedback detalhado</button>
-                <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2">Próxima unidade <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- ================== 6. LEADERBOARD ================== -->
@@ -1337,7 +1285,7 @@ tailwind.config = {
 
       <!-- mini legend -->
       <div class="mt-4 text-xs text-slate-500 flex flex-wrap items-center gap-4">
-        <span class="flex items-center gap-1.5"><i data-lucide="info" class="w-3.5 h-3.5"></i> Pontos somam login (25), unidade concluída (25), curso completo (150) e certificação (150).</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="info" class="w-3.5 h-3.5"></i> Pontos somam login (25), unidade concluída (25), quiz aprovado (25 + 50 se 100%), curso completo (+150 bônus).</span>
       </div>
     </section>
 
@@ -2030,7 +1978,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=4"></script>
-<script src="actions.js?v=1"></script>
+<script src="api.js?v=5"></script>
+<script src="actions.js?v=2"></script>
 </body>
 </html>

@@ -551,6 +551,121 @@ def dashboard_overview(db: Session = Depends(get_db), _: User = Depends(current_
     }
 
 
+# ============ DASHBOARD EXTRAS ============
+@app.get("/api/dashboard/timeline")
+def dashboard_timeline(limit: int = 10, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    """Eventos recentes: logins + cursos completos + badges ganhas, ordenado por data."""
+    from datetime import datetime as _dt
+    events = []
+    # logins recentes (últimos 30d)
+    recent_logins = db.query(User).filter(User.last_login.isnot(None)).order_by(User.last_login.desc()).limit(limit).all()
+    for u in recent_logins:
+        events.append({
+            "ts": u.last_login.isoformat() if u.last_login else None,
+            "kind": "login",
+            "actor_initials": u.avatar_initials,
+            "actor_name": f"{u.name} {u.surname}".strip(),
+            "actor_id": u.id,
+            "text": "entrou no portal",
+        })
+    # cursos concluídos
+    completed = db.query(Enrollment).filter(Enrollment.completed_at.isnot(None)).order_by(Enrollment.completed_at.desc()).limit(limit).all()
+    for e in completed:
+        u = db.query(User).get(e.user_id)
+        c = db.query(Course).get(e.course_id)
+        if not u or not c: continue
+        events.append({
+            "ts": e.completed_at.isoformat(),
+            "kind": "course_completed",
+            "actor_initials": u.avatar_initials,
+            "actor_name": f"{u.name} {u.surname}".strip(),
+            "actor_id": u.id,
+            "text": f"concluiu o curso \"{c.name}\"",
+        })
+    # badges ganhas
+    badges_earned = db.query(UserBadge).order_by(UserBadge.earned_at.desc()).limit(limit).all()
+    for ub in badges_earned:
+        u = db.query(User).get(ub.user_id)
+        b = db.query(Badge).get(ub.badge_id)
+        if not u or not b: continue
+        events.append({
+            "ts": ub.earned_at.isoformat(),
+            "kind": "badge_earned",
+            "actor_initials": u.avatar_initials,
+            "actor_name": f"{u.name} {u.surname}".strip(),
+            "actor_id": u.id,
+            "text": f"desbloqueou a badge \"{b.name}\"",
+        })
+    events.sort(key=lambda e: e["ts"] or "", reverse=True)
+    return events[:limit]
+
+
+@app.get("/api/dashboard/portal-activity")
+def portal_activity(days: int = 7, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    """Logins + cursos concluídos por dia, últimos N dias."""
+    from datetime import datetime as _dt, timedelta as _td
+    today = _dt.utcnow().date()
+    out = []
+    for i in range(days - 1, -1, -1):
+        d = today - _td(days=i)
+        start = _dt(d.year, d.month, d.day)
+        end = start + _td(days=1)
+        logins = db.query(func.count(User.id)).filter(User.last_login >= start, User.last_login < end).scalar() or 0
+        completed = db.query(func.count(Enrollment.id)).filter(Enrollment.completed_at >= start, Enrollment.completed_at < end).scalar() or 0
+        out.append({
+            "date": d.isoformat(),
+            "day_short": d.strftime("%a"),
+            "day_num": d.day,
+            "logins": logins,
+            "completed": completed,
+        })
+    return out
+
+
+@app.get("/api/dashboard/top-courses")
+def top_courses(limit: int = 5, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    """Cursos com mais matrículas."""
+    rows = (
+        db.query(Course, func.count(Enrollment.id).label("n"))
+        .outerjoin(Enrollment, Enrollment.course_id == Course.id)
+        .filter(Course.status == "active")
+        .group_by(Course.id)
+        .order_by(func.count(Enrollment.id).desc())
+        .limit(limit)
+        .all()
+    )
+    total_users = db.query(func.count(User.id)).filter(User.status == "active").scalar() or 1
+    return [{
+        "id": c.id, "name": c.name, "category": c.category, "icon": c.icon,
+        "enrollments": int(n), "pct": int(round(n * 100 / total_users)),
+    } for c, n in rows]
+
+
+# ============ COURSE STATS ============
+@app.get("/api/courses/{course_id}/stats")
+def course_stats(course_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    enrolls = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+    total = len(enrolls)
+    completed = sum(1 for e in enrolls if e.completed_at)
+    units = db.query(Unit).filter(Unit.course_id == course_id).all()
+    # nota média (de progress.score nas units quiz desse curso)
+    unit_ids = [u.id for u in units]
+    scores = db.query(Progress.score).filter(
+        Progress.unit_id.in_(unit_ids), Progress.score.isnot(None)
+    ).all() if unit_ids else []
+    avg_score = round(sum(s[0] for s in scores) / len(scores), 1) if scores else None
+    # tempo médio (estimativa via duration_min)
+    duration_total = sum(u.duration_min for u in units)
+    return {
+        "matriculados": total,
+        "concluiram": completed,
+        "taxa_conclusao_pct": int(round(completed * 100 / total)) if total else 0,
+        "nota_media": avg_score,
+        "duracao_min": duration_total,
+        "units_count": len(units),
+    }
+
+
 # ============ MATRIX ============
 @app.get("/api/reports/training-matrix")
 def training_matrix(db: Session = Depends(get_db), _: User = Depends(current_user)):
