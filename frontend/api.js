@@ -579,6 +579,69 @@ async function renderMatrix() {
   } catch (e) { console.error("[matrix]", e); }
 }
 
+/* ============ USERS LIST ============ */
+let usersAllCache = null;
+async function renderUsers() {
+  try {
+    usersAllCache = await api("/api/users");
+    const sub = $("#users-subtitle");
+    if (sub) {
+      const active = usersAllCache.filter(u => u.status === "active").length;
+      const byBranch = {};
+      usersAllCache.forEach(u => byBranch[u.branch] = (byBranch[u.branch] || 0) + 1);
+      const branchSummary = Object.entries(byBranch).map(([b, n]) => `${n} ${b}`).join(" · ");
+      sub.textContent = `${usersAllCache.length} ${usersAllCache.length === 1 ? "utilizador" : "utilizadores"} · ${active} ${active === 1 ? "ativo" : "ativos"}${branchSummary ? " · " + branchSummary : ""}`;
+    }
+    applyUsersFilter();
+  } catch (e) { console.error("[users]", e); }
+}
+
+function applyUsersFilter() {
+  if (!usersAllCache) return;
+  const search = ($("#users-search")?.value || "").toLowerCase();
+  const typeF = $("#users-filter-type")?.value || "";
+  const branchF = $("#users-filter-branch")?.value || "";
+  const statusF = $("#users-filter-status")?.value || "";
+  const filtered = usersAllCache.filter(u => {
+    if (search && !(u.name.toLowerCase().includes(search) || (u.surname || "").toLowerCase().includes(search) || u.login.toLowerCase().includes(search) || u.email.toLowerCase().includes(search))) return false;
+    if (typeF && u.user_type !== typeF) return false;
+    if (branchF && u.branch !== branchF) return false;
+    if (statusF && u.status !== statusF) return false;
+    return true;
+  });
+  const tbody = $("#users-tbody");
+  if (!tbody) return;
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-500"><i data-lucide="users-x" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Nenhum utilizador encontrado.</p></td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(u => `
+      <tr class="cursor-pointer" onclick="location.hash='#/user-detail?id=${u.id}'" ${u.id === state.user.id ? 'style="background:#EBF7FA"' : ""}>
+        <td>
+          <div class="flex items-center gap-3">
+            ${avatarHtml(u.avatar_initials)}
+            <div>
+              <div class="font-semibold text-naval flex items-center gap-2">${escapeHtml(u.name)} ${escapeHtml(u.surname || "")} ${u.id === state.user.id ? '<span class="badge badge-success text-[9px]">VOCÊ</span>' : ""}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(u.email)} · <code class="bg-gelo px-1 rounded">${escapeHtml(u.login)}</code></div>
+            </div>
+          </div>
+        </td>
+        <td class="hidden md:table-cell"><span class="badge ${u.user_type === "SuperAdmin" ? "badge-warn" : u.user_type === "Admin" ? "badge-info" : "badge-neutral"}">${escapeHtml(u.user_type)}</span></td>
+        <td class="hidden md:table-cell"><span class="badge badge-info">${escapeHtml(u.branch)}</span></td>
+        <td class="hidden lg:table-cell text-center font-bold text-naval">${u.level}</td>
+        <td class="hidden lg:table-cell text-right font-bold text-naval">${u.points.toLocaleString("pt-BR")}</td>
+        <td class="hidden lg:table-cell text-xs text-slate-500">${u.last_login ? relativeTime(u.last_login) : "—"}</td>
+        <td onclick="event.stopPropagation()">
+          <div class="flex items-center justify-end gap-1">
+            <a href="#/user-detail?id=${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Ver detalhes"><i data-lucide="eye" class="w-4 h-4 text-naval"></i></a>
+            <button data-action="edit-user" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Editar"><i data-lucide="pencil" class="w-4 h-4 text-naval"></i></button>
+            ${u.id !== state.user.id ? `<button data-action="delete-user" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Deletar"><i data-lucide="trash-2" class="w-4 h-4 text-danger-bd"></i></button>` : ""}
+          </div>
+        </td>
+      </tr>`).join("");
+  }
+  rerunLucide();
+}
+
 /* ============ USER DETAIL ============ */
 async function renderUserDetail() {
   try {
@@ -594,6 +657,12 @@ async function renderUserDetail() {
       <span class="badge ${u.status === "active" ? "badge-success" : "badge-neutral"}">${u.status === "active" ? "Ativo" : "Inativo"}</span>
       <span>·</span><span class="flex items-center gap-1"><i data-lucide="mail" class="w-3.5 h-3.5"></i> ${escapeHtml(u.email)}</span>
       ${u.last_login ? `<span>·</span><span class="flex items-center gap-1"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> ${new Date(u.last_login).toLocaleDateString("pt-BR")}</span>` : ""}`;
+
+    // tab counts dinâmicos
+    const tabs = $$("#page-user-detail .tab-trigger");
+    if (tabs[0]) tabs[0].innerHTML = `<i data-lucide="book-open" class="w-4 h-4"></i> Cursos <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${u.enrollments.length}</span>`;
+    if (tabs[1]) tabs[1].innerHTML = `<i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span>`;
+    if (tabs[2]) tabs[2].innerHTML = `<i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span>`;
 
     // tabela cursos (com nomes reais)
     const tbody = $("#page-user-detail .data-table tbody");
@@ -631,7 +700,17 @@ async function renderUserDetail() {
             </div>
           </td>
         </tr>`;}).join("");
+      // empty state se zero cursos
+      if (u.enrollments.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-500"><i data-lucide="book-x" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm mb-3">Este utilizador não está em nenhum curso ainda.</p><button data-action="enroll-user" data-id="${u.id}" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold">+ Inscrever em curso</button></td></tr>`;
+      }
     }
+
+    // footer da tabela: counts reais
+    const completed = u.enrollments.filter(e => e.completed_at).length;
+    const inProgress = u.enrollments.filter(e => !e.completed_at && e.progress_pct > 0).length;
+    const counter = $("#page-user-detail .border-t.border-borderd.p-3 span");
+    if (counter) counter.textContent = `${u.enrollments.length} ${u.enrollments.length === 1 ? "curso atribuído" : "cursos atribuídos"} · ${completed} ${completed === 1 ? "concluído" : "concluídos"} · ${inProgress} em progresso`;
 
     // info widgets
     const widgets = $$("#page-user-detail .grid.grid-cols-2.md\\:grid-cols-5 .widget .widget-body");
@@ -845,6 +924,7 @@ const routes = {
   "matrix": renderMatrix,
   "user-detail": renderUserDetail,
   "profile": renderProfile,
+  "users": renderUsers,
 };
 async function handleRoute() {
   // Guard: se não há user/token, força login antes de tentar render
@@ -853,6 +933,12 @@ async function handleRoute() {
   if (routes[name]) {
     try { await routes[name](); } catch (e) { console.error("[route]", e); }
   }
+  // refresh sidebar user count em toda navegação
+  try {
+    const ov = await api("/api/dashboard/overview");
+    const el = document.getElementById("sb-users-count");
+    if (el) el.textContent = ov.users_active;
+  } catch {}
 }
 
 /* ============ BOOTSTRAP ============ */

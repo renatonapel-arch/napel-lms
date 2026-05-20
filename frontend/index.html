@@ -176,9 +176,9 @@ tailwind.config = {
       <i data-lucide="user-circle" class="nav-icon w-5 h-5 text-ceu"></i> Meu perfil
     </a>
     <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 px-3 pt-6 pb-2">Administração</div>
-    <a href="#/user-detail" data-nav="user-detail" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+    <a href="#/users" data-nav="users" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
       <i data-lucide="users" class="nav-icon w-5 h-5 text-ceu"></i> Utilizadores
-      <span class="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded">5</span>
+      <span class="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded" id="sb-users-count">—</span>
     </a>
     <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
       <i data-lucide="users-round" class="nav-icon w-5 h-5 text-slate-500"></i> Grupos
@@ -1677,6 +1677,62 @@ tailwind.config = {
       </div>
     </section>
 
+    <!-- ================== 10. LISTA DE UTILIZADORES ================== -->
+    <section id="page-users" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval">Utilizadores</h1>
+          <p class="text-sm text-slate-500 mt-1" id="users-subtitle">—</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <button data-action="export-users-csv" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i> Export CSV
+          </button>
+          <button data-action="placeholder" class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="upload" class="w-4 h-4"></i> Importar
+          </button>
+          <button data-action="create-user" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Adicionar utilizador
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white border border-borderd rounded-lg p-3 flex flex-col md:flex-row gap-2 mb-4">
+        <div class="flex-1 relative">
+          <input id="users-search" type="search" placeholder="Procurar por nome, login, email…" class="w-full pl-10 pr-4 h-10 rounded-md bg-gelo border border-transparent focus:bg-white focus:border-borders text-sm">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+        </div>
+        <select id="users-filter-type" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option value="">Todos os tipos</option><option>SuperAdmin</option><option>Admin</option><option>Instructor-Type</option><option>Learner-Type</option>
+        </select>
+        <select id="users-filter-branch" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option value="">Todas as filiais</option><option>MGA</option><option>LEM</option><option>PTA</option>
+        </select>
+        <select id="users-filter-status" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option value="">Todos status</option><option value="active">Ativo</option><option value="inactive">Inativo</option>
+        </select>
+      </div>
+
+      <div class="bg-white border border-borderd rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Utilizador</th>
+                <th class="hidden md:table-cell">Tipo</th>
+                <th class="hidden md:table-cell">Filial</th>
+                <th class="hidden lg:table-cell text-center">Nível</th>
+                <th class="hidden lg:table-cell text-right">Pontos</th>
+                <th class="hidden lg:table-cell">Último login</th>
+                <th class="text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- ================== 9. DETALHE DE USUÁRIO (ADMIN) ================== -->
     <section id="page-user-detail" class="page">
       <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-3" aria-label="Breadcrumb">
@@ -1923,7 +1979,7 @@ tailwind.config = {
 </div>
 
 <script>
-  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail'];
+  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users'];
 
   function showPage(name) {
     const target = pages.includes(name) ? name : 'dashboard';
@@ -1978,7 +2034,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=7"></script>
-<script src="actions.js?v=2"></script>
+<script src="api.js?v=8"></script>
+<script src="actions.js?v=3"></script>
 </body>
 </html>

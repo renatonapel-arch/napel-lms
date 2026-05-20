@@ -471,6 +471,24 @@ function exportCsv(filename, rows, headers) {
   toast("CSV baixado ✓");
 }
 
+async function deleteUser(userId) {
+  if (!confirm("Deletar este utilizador? Todas as matrículas e progresso dele serão apagados.")) return;
+  try {
+    await api(`/api/users/${userId}`, { method: "DELETE" });
+    toast("Utilizador deletado");
+    if (typeof renderUsers === "function") await renderUsers();
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+async function exportUsersCsv() {
+  const users = await api("/api/users");
+  exportCsv("utilizadores.csv", users.map(u => ({
+    id: u.id, login: u.login, nome: u.name, sobrenome: u.surname || "", email: u.email,
+    tipo: u.user_type, filial: u.branch, status: u.status, nivel: u.level, pontos: u.points,
+    ultimo_login: u.last_login || "",
+  })), ["id", "login", "nome", "sobrenome", "email", "tipo", "filial", "status", "nivel", "pontos", "ultimo_login"]);
+}
+
 async function exportCoursesCsv() {
   if (!coursesAllCache) coursesAllCache = await api("/api/courses");
   exportCsv("cursos.csv", coursesAllCache.map(c => ({
@@ -515,6 +533,8 @@ document.addEventListener("click", async (e) => {
     case "prev-unit": return navUnit("prev");
     case "export-courses-csv": return exportCoursesCsv();
     case "export-user-courses-csv": return exportUserCoursesCsv(id || currentUserIdFromHash());
+    case "export-users-csv": return exportUsersCsv();
+    case "delete-user": return deleteUser(id);
     case "placeholder": return toast("Em breve nesta demo. Por enquanto é só visual.", "info");
   }
 });
@@ -532,6 +552,12 @@ document.addEventListener("input", e => {
   if (e.target.closest("#page-courses input[type=search], #page-courses select")) {
     applyCoursesFilter();
   }
+  if (e.target.closest("#page-users input[type=search], #page-users select")) {
+    applyUsersFilter();
+  }
+});
+document.addEventListener("change", e => {
+  if (e.target.closest("#page-users select")) applyUsersFilter();
 });
 
 // dropdown role no user-detail (delegated change)
@@ -546,6 +572,7 @@ document.addEventListener("change", e => {
 // reset cache de courses quando navega
 window.addEventListener("hashchange", () => {
   if (location.hash.startsWith("#/courses")) coursesAllCache = null;
+  if (location.hash.startsWith("#/users")) usersAllCache = null;
   // quiz auto-load
   if (location.hash.startsWith("#/quiz")) {
     const qs = new URLSearchParams(location.hash.split("?")[1] || "");
