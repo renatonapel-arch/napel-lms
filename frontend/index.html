@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#113C58">
+<title>Napel LMS — Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      colors: {
+        naval: '#113C58',
+        noite: '#042C48',
+        ceu: '#7DA4C6',
+        gelo: '#EBF7FA',
+        page: '#FAFCFD',
+        borderd: '#E4EEF3',
+        borders: '#CFDEE7',
+        'success-bg': '#D1FAE5',
+        'success-fg': '#065F46',
+        'success-bd': '#10B981',
+        'warn-bg': '#FEF3C7',
+        'warn-fg': '#92400E',
+        'warn-bd': '#F59E0B',
+        'danger-bg': '#FEE2E2',
+        'danger-fg': '#991B1B',
+        'danger-bd': '#EF4444'
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #FAFCFD; -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: #FAFCFD; }
+  ::-webkit-scrollbar-thumb { background: #CFDEE7; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #7DA4C6; }
+  :focus-visible { outline: 2px solid #113C58; outline-offset: 2px; border-radius: 4px; }
+  .page { display: none; }
+  .page.active { display: block; animation: fadeIn 200ms ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .nav-item.active { background: #113C58; color: white; }
+  .nav-item.active .nav-icon { color: white; }
+  @media (max-width: 1023px) {
+    #sidebar { transform: translateX(-100%); transition: transform 200ms ease-out; }
+    #sidebar.open { transform: translateX(0); }
+    #sidebar-backdrop { display: none; }
+    #sidebar-backdrop.open { display: block; }
+    .main-shifted { margin-left: 0 !important; }
+  }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; border-width: 1px; line-height: 16px; }
+  .badge-success { background: #D1FAE5; color: #065F46; border-color: #10B981; }
+  .badge-warn { background: #FEF3C7; color: #92400E; border-color: #F59E0B; }
+  .badge-danger { background: #FEE2E2; color: #991B1B; border-color: #EF4444; }
+  .badge-info { background: #EBF7FA; color: #113C58; border-color: #7DA4C6; }
+  .badge-neutral { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 180px; padding: 16px 8px 8px; border-bottom: 1px solid #E4EEF3; }
+  .bar-chart .bar { flex: 1; min-width: 8px; border-radius: 4px 4px 0 0; transition: opacity 150ms; position: relative; }
+  .bar-chart .bar:hover { opacity: 0.85; }
+  .bar-chart .bar-logins { background: linear-gradient(180deg, #7DA4C6 0%, #113C58 100%); }
+  .bar-chart .bar-completed { background: linear-gradient(180deg, #10B981 0%, #065F46 100%); }
+  .progress-bar { background: #E4EEF3; height: 6px; border-radius: 3px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #10B981 0%, #7DA4C6 100%); border-radius: 3px; transition: width 300ms ease-out; }
+  .video-mockup { background: linear-gradient(135deg, #042C48 0%, #113C58 100%); position: relative; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; }
+  .video-mockup::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(125,164,198,0.2), transparent 60%); }
+  .skeleton-thumb { background: linear-gradient(135deg, #113C58 0%, #7DA4C6 100%); position: relative; }
+  .skeleton-thumb-2 { background: linear-gradient(135deg, #042C48 0%, #113C58 50%, #7DA4C6 100%); }
+  .skeleton-thumb-3 { background: linear-gradient(135deg, #7DA4C6 0%, #EBF7FA 50%, #113C58 100%); }
+  .skeleton-thumb-4 { background: linear-gradient(135deg, #10B981 0%, #113C58 100%); }
+  .skeleton-thumb-5 { background: linear-gradient(135deg, #F59E0B 0%, #113C58 100%); }
+  .badge-trophy { background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%); }
+  .badge-trophy-silver { background: linear-gradient(135deg, #94A3B8 0%, #CBD5E1 100%); }
+  .badge-trophy-bronze { background: linear-gradient(135deg, #B45309 0%, #D97706 100%); }
+  button, [role=button], a.btn-link { min-height: 44px; min-width: 44px; }
+  .btn-small { min-height: 36px; min-width: 36px; }
+  /* esconder min-height pra ícones puros sem texto em contextos compactos */
+  .icon-only { min-height: 36px; min-width: 36px; }
+  .quiz-option { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 2px solid #E4EEF3; border-radius: 8px; cursor: pointer; transition: all 150ms; }
+  .quiz-option:hover { border-color: #7DA4C6; background: #EBF7FA; }
+  .quiz-option.selected { border-color: #113C58; background: #EBF7FA; }
+  .quiz-option .opt-letter { width: 32px; height: 32px; border-radius: 6px; background: #E4EEF3; color: #113C58; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .quiz-option.selected .opt-letter { background: #113C58; color: white; }
+  /* tab style */
+  .tab-trigger { padding: 12px 16px; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; color: #64748B; cursor: pointer; min-height: 44px; }
+  .tab-trigger.active { color: #113C58; border-color: #113C58; font-weight: 600; }
+  .tab-trigger:hover { color: #113C58; }
+  /* unit row */
+  .unit-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 6px; cursor: pointer; transition: background 150ms; min-height: 56px; }
+  .unit-row:hover { background: #EBF7FA; }
+  .unit-row.completed .unit-icon { background: #D1FAE5; color: #065F46; }
+  .unit-row.current { background: #EBF7FA; border-left: 3px solid #113C58; }
+  .unit-icon { width: 36px; height: 36px; border-radius: 6px; background: #E4EEF3; color: #113C58; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  /* widget card */
+  .widget { background: white; border: 1px solid #E4EEF3; border-radius: 8px; overflow: hidden; }
+  .widget-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #E4EEF3; }
+  .widget-title { font-size: 14px; font-weight: 600; color: #113C58; }
+  .widget-body { padding: 20px; }
+  /* kpi row */
+  .kpi-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #F1F5F9; }
+  .kpi-row:last-child { border-bottom: none; }
+  .kpi-label { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #475569; }
+  .kpi-value { font-size: 18px; font-weight: 700; color: #113C58; }
+  /* table */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748B; background: #F8FAFC; border-bottom: 1px solid #E4EEF3; }
+  .data-table td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #F1F5F9; }
+  .data-table tr:hover td { background: #FAFCFD; }
+  /* avatar circle generator */
+  .avatar { width: 36px; height: 36px; border-radius: 9999px; background: linear-gradient(135deg, #113C58 0%, #7DA4C6 100%); color: white; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; text-transform: uppercase; }
+  .avatar-lg { width: 88px; height: 88px; font-size: 32px; }
+  /* loading dots reserved if needed */
+  /* mobile-only utilities */
+  .lg-only { display: none; }
+  @media (min-width: 1024px) { .lg-only { display: initial; } }
+  /* Matrix de formação */
+  .matrix-wrap { overflow-x: auto; overflow-y: visible; }
+  .matrix-table { border-collapse: separate; border-spacing: 0; width: 100%; }
+  .matrix-table thead th { background: #FAFCFD; vertical-align: bottom; }
+  .matrix-table th.user-header { text-align: left; padding: 0 16px 14px; height: 180px; min-width: 240px; font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #E4EEF3; position: sticky; left: 0; background: #FAFCFD; z-index: 2; }
+  .matrix-table th.course-col { height: 180px; padding: 0 4px; border-bottom: 1px solid #E4EEF3; width: 60px; min-width: 60px; max-width: 60px; position: relative; }
+  .matrix-table th.course-col .course-label { position: absolute; bottom: 14px; left: 50%; transform: rotate(-50deg) translateX(0); transform-origin: left bottom; white-space: nowrap; font-size: 12px; font-weight: 500; color: #113C58; width: 200px; padding-left: 4px; overflow: hidden; text-overflow: ellipsis; }
+  .matrix-table tbody td { padding: 14px 8px; text-align: center; border-bottom: 1px solid #F1F5F9; font-size: 14px; color: #1e293b; }
+  .matrix-table tbody td.user-cell { text-align: left; padding-left: 16px; font-weight: 500; color: #113C58; min-width: 240px; position: sticky; left: 0; background: white; z-index: 1; }
+  .matrix-table tbody tr:hover td { background: #FAFCFD; }
+  .matrix-table tbody tr:hover td.user-cell { background: #EBF7FA; }
+  .matrix-cell { width: 28px; height: 28px; border-radius: 9999px; margin: 0 auto; display: inline-flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: transform 120ms; }
+  .matrix-cell:hover { transform: scale(1.15); }
+  .matrix-cell.completed { background: #10B981; color: white; box-shadow: 0 1px 3px rgba(16,185,129,0.35); }
+  .matrix-cell.completed svg { width: 16px; height: 16px; stroke-width: 3; }
+  .matrix-cell.in-progress { background: #FEF3C7; border: 2px solid #F59E0B; }
+  .matrix-cell.in-progress::after { content: ''; width: 10px; height: 10px; border-radius: 9999px; background: #F59E0B; }
+  .matrix-cell.started { background: #FEF3C7; }
+  .matrix-cell.started::after { content: ''; width: 8px; height: 8px; border-radius: 9999px; background: #F59E0B; }
+  .matrix-cell.empty { background: #F1F5F9; border: 1px solid #E4EEF3; }
+  .matrix-cell.failed { background: #FEE2E2; color: #991B1B; }
+  .matrix-cell.failed svg { width: 14px; height: 14px; stroke-width: 3; }
+  .reports-subnav { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 16px; border-bottom: 1px solid #E4EEF3; scrollbar-width: thin; }
+  .reports-subnav::-webkit-scrollbar { height: 4px; }
+  .reports-subnav .subnav-item { padding: 10px 16px; font-size: 13px; color: #64748B; white-space: nowrap; border-bottom: 2px solid transparent; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; }
+  .reports-subnav .subnav-item:hover { color: #113C58; }
+  .reports-subnav .subnav-item.active { color: #113C58; border-color: #113C58; font-weight: 600; }
+</style>
+</head>
+<body class="text-slate-900">
+
+<!-- BACKDROP MOBILE -->
+<div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-black/40 z-30 lg:hidden"></div>
+
+<!-- SIDEBAR -->
+<aside id="sidebar" class="fixed top-0 left-0 h-screen w-[260px] z-40 bg-noite text-slate-200 flex flex-col">
+  <div class="h-16 flex items-center px-6 border-b border-slate-700/40 shrink-0">
+    <span class="text-2xl font-extrabold tracking-wider text-white">NAPEL</span>
+    <span class="ml-2 text-[10px] font-bold uppercase text-ceu tracking-widest">LMS</span>
+  </div>
+  <nav class="flex-1 px-3 py-4 overflow-y-auto">
+    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 px-3 py-2">Menu</div>
+    <a href="#/dashboard" data-nav="dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="layout-dashboard" class="nav-icon w-5 h-5 text-ceu"></i> Home
+    </a>
+    <a href="#/courses" data-nav="courses" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="book-open" class="nav-icon w-5 h-5 text-ceu"></i> Cursos
+    </a>
+    <a href="#/leaderboard" data-nav="leaderboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="trophy" class="nav-icon w-5 h-5 text-ceu"></i> Ranking
+    </a>
+    <a href="#/profile" data-nav="profile" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="user-circle" class="nav-icon w-5 h-5 text-ceu"></i> Meu perfil
+    </a>
+    <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500 px-3 pt-6 pb-2">Administração</div>
+    <a href="#/user-detail" data-nav="user-detail" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="users" class="nav-icon w-5 h-5 text-ceu"></i> Utilizadores
+      <span class="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded">5</span>
+    </a>
+    <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
+      <i data-lucide="users-round" class="nav-icon w-5 h-5 text-slate-500"></i> Grupos
+    </a>
+    <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
+      <i data-lucide="git-branch" class="nav-icon w-5 h-5 text-slate-500"></i> Ramificações
+      <i data-lucide="crown" class="w-3.5 h-3.5 ml-auto text-warn-bd"></i>
+    </a>
+    <a href="#/matrix" data-nav="matrix" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors">
+      <i data-lucide="bar-chart-3" class="nav-icon w-5 h-5 text-ceu"></i> Relatórios
+    </a>
+    <a href="#/dashboard" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm font-medium transition-colors text-slate-400">
+      <i data-lucide="settings" class="nav-icon w-5 h-5 text-slate-500"></i> Configurações
+    </a>
+  </nav>
+  <div class="p-3 border-t border-slate-700/40 shrink-0">
+    <a href="#" class="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm text-slate-300">
+      <i data-lucide="life-buoy" class="w-5 h-5 text-ceu"></i> Ajuda &amp; suporte
+    </a>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-shifted lg:ml-[260px] min-h-screen flex flex-col">
+  <!-- TOPBAR -->
+  <header class="sticky top-0 bg-white border-b border-borderd h-16 z-20 flex items-center px-4 lg:px-8 gap-3 lg:gap-4 shrink-0">
+    <button onclick="toggleSidebar()" class="lg:hidden p-2.5 -ml-2 hover:bg-gelo rounded-md icon-only" aria-label="Abrir menu">
+      <i data-lucide="menu" class="w-5 h-5 text-naval"></i>
+    </button>
+    <div class="flex-1 max-w-2xl relative">
+      <input type="search" placeholder="Procurar cursos, alunos, badges…" aria-label="Buscar"
+             class="w-full pl-10 pr-4 h-10 rounded-md bg-gelo border border-transparent focus:bg-white focus:border-borders text-sm transition-colors placeholder:text-slate-400">
+      <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+    </div>
+    <button class="relative p-2.5 hover:bg-gelo rounded-md icon-only" aria-label="Mensagens (3 não lidas)">
+      <i data-lucide="message-square" class="w-5 h-5 text-slate-600"></i>
+      <span class="absolute top-1 right-1 w-4 h-4 bg-danger-bd text-white text-[10px] rounded-full flex items-center justify-center font-bold leading-none">3</span>
+    </button>
+    <button class="relative p-2.5 hover:bg-gelo rounded-md icon-only" aria-label="Notificações">
+      <i data-lucide="bell" class="w-5 h-5 text-slate-600"></i>
+      <span class="absolute top-2 right-2 w-2 h-2 bg-warn-bd rounded-full"></span>
+    </button>
+    <div class="flex items-center gap-3 pl-3 border-l border-borderd">
+      <div class="text-right hidden md:block leading-tight">
+        <div class="text-sm font-semibold text-naval">RENATO FORMAGIO</div>
+        <div class="text-[11px] text-slate-500">Administrador · Napel</div>
+      </div>
+      <button class="avatar" aria-label="Menu do usuário">R</button>
+    </div>
+  </header>
+
+  <!-- ============================================== -->
+  <!-- PAGINAS -->
+  <!-- ============================================== -->
+  <main class="flex-1 px-4 lg:px-8 py-6">
+
+    <!-- ================== 1. DASHBOARD ================== -->
+    <section id="page-dashboard" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval flex items-center gap-2">
+            <i data-lucide="party-popper" class="w-7 h-7 text-warn-bd"></i> Bem-vindo, RENATO!
+          </h1>
+          <p class="text-sm text-slate-500 mt-1">Quinta-feira, 20 de maio · 5 utilizadores ativos · 38 cursos</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-4 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Adicionar widget
+          </button>
+          <button class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Editar modo">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- Atividade no portal -->
+        <div class="widget">
+          <div class="widget-header">
+            <h3 class="widget-title flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4"></i> Atividade no portal</h3>
+            <select class="text-xs px-3 py-1.5 border border-borderd rounded-md bg-white">
+              <option>Semana</option><option>Mês</option><option>Trimestre</option>
+            </select>
+          </div>
+          <div class="widget-body">
+            <div class="bar-chart">
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 30%"></div>
+                <span class="text-[10px] text-slate-500">qua 13</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 78%"></div>
+                <span class="text-[10px] text-slate-500">qui 14</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 12%"></div>
+                <span class="text-[10px] text-slate-500">sex 15</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 88%"></div>
+                <div class="bar bar-completed" style="height: 25%; margin-top: 2px"></div>
+                <span class="text-[10px] text-slate-500">sáb 16</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 50%"></div>
+                <span class="text-[10px] text-slate-500">dom 17</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 92%"></div>
+                <div class="bar bar-completed" style="height: 45%; margin-top: 2px"></div>
+                <span class="text-[10px] text-slate-500">seg 18</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-1">
+                <div class="bar bar-logins" style="height: 95%"></div>
+                <div class="bar bar-completed" style="height: 30%; margin-top: 2px"></div>
+                <span class="text-[10px] text-slate-500 font-bold">ter 19</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-6 mt-3 text-xs">
+              <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-naval"></span> Logins</span>
+              <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#10B981"></span> Cursos concluídos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ações rápidas -->
+        <div class="widget">
+          <div class="widget-header"><h3 class="widget-title flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4"></i> Ações rápidas</h3></div>
+          <div class="widget-body grid grid-cols-1 gap-2">
+            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+              <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="user-plus" class="w-5 h-5"></i></div>
+              <div class="flex-1"><div class="text-sm font-semibold text-naval">Adicionar utilizador</div><div class="text-xs text-slate-500">Cadastrar novo vendedor ou instrutor</div></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </button>
+            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+              <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="book-plus" class="w-5 h-5"></i></div>
+              <div class="flex-1"><div class="text-sm font-semibold text-naval">Adicionar curso</div><div class="text-xs text-slate-500">Criar novo treinamento do zero</div></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </button>
+            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+              <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></div>
+              <div class="flex-1"><div class="text-sm font-semibold text-naval">Definições do portal</div><div class="text-xs text-slate-500">Branding, idiomas, integrações</div></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </button>
+            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+              <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="users-round" class="w-5 h-5"></i></div>
+              <div class="flex-1"><div class="text-sm font-semibold text-naval">Adicionar grupo</div><div class="text-xs text-slate-500">Agrupar alunos por filial ou função</div></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </button>
+            <button class="flex items-center gap-3 p-3 rounded-md hover:bg-gelo text-left transition-colors">
+              <div class="w-9 h-9 rounded-md bg-gelo text-naval flex items-center justify-center"><i data-lucide="file-bar-chart" class="w-5 h-5"></i></div>
+              <div class="flex-1"><div class="text-sm font-semibold text-naval">Relatórios personalizados</div><div class="text-xs text-slate-500">Cruzar matrículas, progresso, badges</div></div>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visão Geral KPIs -->
+        <div class="widget">
+          <div class="widget-header"><h3 class="widget-title flex items-center gap-2"><i data-lucide="gauge" class="w-4 h-4"></i> Visão Geral</h3></div>
+          <div class="widget-body py-0">
+            <div class="kpi-row"><div class="kpi-label"><i data-lucide="users" class="w-4 h-4 text-ceu"></i> Utilizadores ativos</div><div class="kpi-value">5</div></div>
+            <div class="kpi-row"><div class="kpi-label"><i data-lucide="book-open" class="w-4 h-4 text-ceu"></i> Cursos atribuídos</div><div class="kpi-value">38</div></div>
+            <div class="kpi-row"><div class="kpi-label"><i data-lucide="users-round" class="w-4 h-4 text-ceu"></i> Grupos</div><div class="kpi-value">0</div></div>
+            <div class="kpi-row"><div class="kpi-label"><i data-lucide="clock" class="w-4 h-4 text-ceu"></i> Tempo total de formação</div><div class="kpi-value">1d 8h</div></div>
+            <div class="kpi-row"><div class="kpi-label"><i data-lucide="trending-up" class="w-4 h-4 text-ceu"></i> Taxa de conclusão</div><div class="kpi-value text-success-fg">68.42%</div></div>
+          </div>
+        </div>
+
+        <!-- Cronologia -->
+        <div class="widget">
+          <div class="widget-header">
+            <h3 class="widget-title flex items-center gap-2"><i data-lucide="history" class="w-4 h-4"></i> Cronologia</h3>
+            <a href="#" class="text-xs text-naval font-semibold hover:underline flex items-center gap-1">Ver tudo <i data-lucide="arrow-right" class="w-3 h-3"></i></a>
+          </div>
+          <div class="widget-body py-0">
+            <div class="py-3 flex items-start gap-3 border-b border-slate-100">
+              <div class="avatar" style="background: linear-gradient(135deg,#113C58,#7DA4C6)">R</div>
+              <div class="flex-1 text-sm">
+                <div><span class="font-semibold text-naval">Você</span> <span class="text-slate-600">entrou no portal</span></div>
+                <div class="text-xs text-slate-400 mt-0.5">há 6 minutos</div>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-naval mt-2"></span>
+            </div>
+            <div class="py-3 flex items-start gap-3 border-b border-slate-100">
+              <div class="avatar" style="background: linear-gradient(135deg,#10B981,#065F46)">GN</div>
+              <div class="flex-1 text-sm">
+                <div><span class="font-semibold text-naval">Gabriel Napel</span> <span class="text-slate-600">passou a prova</span> <span class="font-medium">Módulo 5</span> <span class="text-success-fg">(pontuação 92%)</span></div>
+                <div class="text-xs text-slate-400 mt-0.5">ontem · 18:42</div>
+              </div>
+              <span class="w-2 h-2 rounded-full bg-success-bd mt-2"></span>
+            </div>
+            <div class="py-3 flex items-start gap-3 border-b border-slate-100">
+              <div class="avatar" style="background: linear-gradient(135deg,#7DA4C6,#113C58)">GN</div>
+              <div class="flex-1 text-sm">
+                <div><span class="font-semibold text-naval">Gabriel Napel</span> <span class="text-slate-600">entrou</span></div>
+                <div class="text-xs text-slate-400 mt-0.5">ontem · 17:15</div>
+              </div>
+            </div>
+            <div class="py-3 flex items-start gap-3 border-b border-slate-100">
+              <div class="avatar" style="background: linear-gradient(135deg,#F59E0B,#92400E)">GP</div>
+              <div class="flex-1 text-sm">
+                <div><span class="font-semibold text-naval">Gilson Pereira</span> <span class="text-slate-600">entrou</span></div>
+                <div class="text-xs text-slate-400 mt-0.5">ontem · 13:35</div>
+              </div>
+            </div>
+            <div class="py-3 flex items-start gap-3">
+              <div class="avatar" style="background: linear-gradient(135deg,#10B981,#065F46)">GN</div>
+              <div class="flex-1 text-sm">
+                <div><span class="font-semibold text-naval">Gabriel Napel</span> <span class="text-slate-600">desbloqueou emblema</span> <span class="font-medium text-warn-bd">Perfectionist</span></div>
+                <div class="text-xs text-slate-400 mt-0.5">14/05/2026</div>
+              </div>
+              <i data-lucide="trophy" class="w-4 h-4 text-warn-bd mt-1"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cursos mais acessados -->
+        <div class="widget">
+          <div class="widget-header"><h3 class="widget-title flex items-center gap-2"><i data-lucide="flame" class="w-4 h-4"></i> Cursos mais acessados</h3></div>
+          <div class="widget-body py-0">
+            <div class="py-3 border-b border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">Vendedor Bonzinho Não Vende — Thiago Concer</div>
+                <span class="text-xs text-slate-500 font-semibold">87%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: 87%"></div></div>
+            </div>
+            <div class="py-3 border-b border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">5 Técnicas de Persuasão pra Fechar Vendas</div>
+                <span class="text-xs text-slate-500 font-semibold">72%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: 72%"></div></div>
+            </div>
+            <div class="py-3 border-b border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">Fidelização de Clientes — 5 Dicas Incríveis</div>
+                <span class="text-xs text-slate-500 font-semibold">64%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: 64%"></div></div>
+            </div>
+            <div class="py-3 border-b border-slate-100">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">Catálogo Técnico — Molas e Suspensão</div>
+                <span class="text-xs text-slate-500 font-semibold">51%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: 51%"></div></div>
+            </div>
+            <div class="py-3">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">Atendimento WhatsApp — Boas Práticas</div>
+                <span class="text-xs text-slate-500 font-semibold">38%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: 38%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Leaderboard top 5 -->
+        <div class="widget">
+          <div class="widget-header">
+            <h3 class="widget-title flex items-center gap-2"><i data-lucide="trophy" class="w-4 h-4"></i> Ranking de pontos</h3>
+            <a href="#/leaderboard" class="text-xs text-naval font-semibold hover:underline flex items-center gap-1">Ver completo <i data-lucide="arrow-right" class="w-3 h-3"></i></a>
+          </div>
+          <div class="widget-body py-0">
+            <div class="py-3 flex items-center gap-3 border-b border-slate-100">
+              <div class="w-8 text-center text-sm font-bold text-warn-bd">🥇</div>
+              <div class="avatar">LA</div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">Luiz Argel</div>
+                <div class="text-xs text-slate-500">19 badges · Nível 6</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-naval">5.496</div>
+                <div class="text-[10px] text-slate-500 uppercase">pontos</div>
+              </div>
+            </div>
+            <div class="py-3 flex items-center gap-3 border-b border-slate-100">
+              <div class="w-8 text-center text-sm font-bold text-slate-500">🥈</div>
+              <div class="avatar">IT</div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">Igor Teixeira</div>
+                <div class="text-xs text-slate-500">18 badges · Nível 6</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-naval">5.434</div>
+                <div class="text-[10px] text-slate-500 uppercase">pontos</div>
+              </div>
+            </div>
+            <div class="py-3 flex items-center gap-3 border-b border-slate-100">
+              <div class="w-8 text-center text-sm font-bold" style="color:#B45309">🥉</div>
+              <div class="avatar">MP</div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">Marcos Paulo</div>
+                <div class="text-xs text-slate-500">17 badges · Nível 6</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-naval">5.373</div>
+                <div class="text-[10px] text-slate-500 uppercase">pontos</div>
+              </div>
+            </div>
+            <div class="py-3 flex items-center gap-3 border-b border-slate-100">
+              <div class="w-8 text-center text-sm font-bold text-slate-400">4</div>
+              <div class="avatar">GS</div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">Guilherme Silvestre</div>
+                <div class="text-xs text-slate-500">17 badges · Nível 6</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-naval">5.233</div>
+                <div class="text-[10px] text-slate-500 uppercase">pontos</div>
+              </div>
+            </div>
+            <div class="py-3 flex items-center gap-3">
+              <div class="w-8 text-center text-sm font-bold text-slate-400">5</div>
+              <div class="avatar">GP</div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">Gilson Pereira</div>
+                <div class="text-xs text-slate-500">7 badges · Nível 2</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-bold text-naval">1.000</div>
+                <div class="text-[10px] text-slate-500 uppercase">pontos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================== 2. CURSOS — LISTA ================== -->
+    <section id="page-courses" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval">Cursos</h1>
+          <p class="text-sm text-slate-500 mt-1">38 cursos · 5 alunos ativos · 31 concluídos no mês</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="folder-tree" class="w-4 h-4"></i> Categorias
+          </button>
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="upload" class="w-4 h-4"></i> Importar
+          </button>
+          <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Adicionar curso
+          </button>
+        </div>
+      </div>
+
+      <!-- filtros -->
+      <div class="bg-white border border-borderd rounded-lg p-3 flex flex-col md:flex-row gap-2 mb-4">
+        <div class="flex-1 relative">
+          <input type="search" placeholder="Procurar por título, código, instrutor…" class="w-full pl-10 pr-4 h-10 rounded-md bg-gelo border border-transparent focus:bg-white focus:border-borders text-sm">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+        </div>
+        <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option>Todas as categorias</option><option>Técnicas de venda</option><option>Catálogo técnico</option><option>Atendimento</option><option>Compliance</option>
+        </select>
+        <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option>Todos os status</option><option>Ativo</option><option>Rascunho</option><option>Arquivado</option>
+        </select>
+        <button class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm">
+          <i data-lucide="filter" class="w-4 h-4"></i> Mais filtros
+        </button>
+      </div>
+
+      <!-- grid de cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <!-- card 1 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-success">Ativo</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="play-circle" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Técnicas de venda · T. Concer</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">5 Técnicas de Persuasão para Fechar Vendas</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 8 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 1h 20min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 5</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 2 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb-2 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-success">Ativo</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="play-circle" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Técnicas de venda · T. Concer</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Vendedor Bonzinho Não Vende</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 6 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 45min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 5</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 3 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb-3 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-success">Ativo</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="play-circle" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Atendimento ao cliente</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Fidelização de Clientes — 5 Dicas Incríveis</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 5 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 38min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 5</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 4 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb-4 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-success">Ativo</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="wrench" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Catálogo técnico</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Catálogo Técnico — Molas e Suspensão</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 12 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 2h 30min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 5</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 5 - draft -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb-5 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-warn">Rascunho</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="message-circle-more" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Atendimento</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Atendimento WhatsApp — Boas Práticas</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 4 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 25min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 0</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 6 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-success">Ativo</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="phone-call" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Técnicas de venda</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Contorno de Objeções em Visita Técnica</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 7 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 1h 05min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 5</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 7 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb-2 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-success">Ativo</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="truck" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Catálogo técnico</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Sistema de Freios para Carretas Pesadas</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 10 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 1h 50min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 4</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 8 -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group">
+          <div class="skeleton-thumb-3 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-info">Obrigatório</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="shield-check" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Compliance · LGPD</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Onboarding Napel — Cultura e Compliance</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 5 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 40min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 5</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+
+        <!-- card 9 - arquivado -->
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group opacity-70">
+          <div class="skeleton-thumb-4 aspect-video relative">
+            <span class="absolute top-3 left-3 badge badge-neutral">Arquivado</span>
+            <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="archive" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
+          </div>
+          <div class="p-4">
+            <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">Atendimento (antigo)</div>
+            <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">Script de Cobrança — versão 2024</h3>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="layers" class="w-3.5 h-3.5"></i> 3 units</span>
+              <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 18min</span>
+              <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> 0</span>
+            </div>
+            <a href="#/course-detail" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+          </div>
+        </article>
+      </div>
+
+      <!-- footer paginação -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-6 pt-4 border-t border-borderd">
+        <div class="text-sm text-slate-500">Mostrando <strong class="text-naval">1–9</strong> de <strong class="text-naval">38</strong> cursos</div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-2 border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-1.5 btn-small"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button>
+          <div class="flex items-center gap-1 ml-2">
+            <button class="w-9 h-9 rounded-md border border-borderd text-slate-400 disabled:opacity-50 icon-only" disabled aria-label="Anterior"><i data-lucide="chevron-left" class="w-4 h-4 mx-auto"></i></button>
+            <button class="w-9 h-9 rounded-md bg-naval text-white text-sm font-semibold icon-only">1</button>
+            <button class="w-9 h-9 rounded-md border border-borderd text-naval hover:bg-gelo text-sm icon-only">2</button>
+            <button class="w-9 h-9 rounded-md border border-borderd text-naval hover:bg-gelo text-sm icon-only">3</button>
+            <span class="px-1 text-slate-400">…</span>
+            <button class="w-9 h-9 rounded-md border border-borderd text-naval hover:bg-gelo text-sm icon-only">5</button>
+            <button class="w-9 h-9 rounded-md border border-borderd text-naval hover:bg-gelo icon-only" aria-label="Próximo"><i data-lucide="chevron-right" class="w-4 h-4 mx-auto"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================== 3. DETALHE DE CURSO ================== -->
+    <section id="page-course-detail" class="page">
+      <!-- breadcrumb -->
+      <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+        <a href="#/dashboard" class="hover:text-naval">Home</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <a href="#/courses" class="hover:text-naval">Cursos</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">5 Técnicas de Persuasão</span>
+      </nav>
+
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-6">
+        <div class="flex-1">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="badge badge-success">Ativo</span>
+            <span class="badge badge-info">Técnicas de venda</span>
+            <span class="text-xs text-slate-500">· código <code class="bg-gelo px-1.5 py-0.5 rounded">VND-101</code></span>
+          </div>
+          <h1 class="text-2xl font-bold text-naval">5 Técnicas de Persuasão para Fechar Vendas | Thiago Concer</h1>
+          <p class="text-sm text-slate-500 mt-2 max-w-3xl">Domine as 5 técnicas-chave que multiplicam a taxa de fechamento de pedidos de molas e suspensão para carretas. Inclui exemplos reais de visita técnica e quiz de validação.</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="eye" class="w-4 h-4"></i> Pré-visualizar
+          </button>
+          <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <i data-lucide="pencil" class="w-4 h-4"></i> Editar curso
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- conteúdo principal: abas + units -->
+        <div class="lg:col-span-2">
+          <!-- tabs -->
+          <div class="flex border-b border-borderd mb-4 -mx-1 px-1 overflow-x-auto">
+            <button class="tab-trigger active" data-tab="content">Conteúdo (8)</button>
+            <button class="tab-trigger" data-tab="students">Alunos (5)</button>
+            <button class="tab-trigger" data-tab="settings">Configurações</button>
+          </div>
+
+          <!-- ações da seção -->
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-naval">Unidades do curso</h2>
+            <button class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold hover:opacity-90 flex items-center gap-1.5 btn-small">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar unidade
+            </button>
+          </div>
+
+          <!-- units list -->
+          <div class="bg-white border border-borderd rounded-lg divide-y divide-slate-100">
+            <div class="unit-row completed">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="check" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">1 · Introdução: o vendedor consultor</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i> Vídeo · 8 min</span>
+                  <span class="badge badge-success">Concluído</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="file-text" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">2 · Tipos de objeção que o cliente faz</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="file-text" class="w-3 h-3"></i> Texto · 5 min de leitura</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row current">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="help-circle" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">3 · Quiz: identifique a objeção</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="help-circle" class="w-3 h-3"></i> Quiz · 10 questões · ≥70%</span>
+                  <span class="badge badge-warn">Em andamento</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="video" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">4 · Demo prática: visita ao cliente</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="video" class="w-3 h-3"></i> Vídeo · 15 min</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="file" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">5 · Cheat-sheet: respostas-padrão</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="file" class="w-3 h-3"></i> PDF · 3 páginas</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="package" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">6 · Simulador SCORM: feche o pedido</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="package" class="w-3 h-3"></i> SCORM 1.2 · 20 min</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="clipboard-check" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">7 · Tarefa: grave seu próprio pitch</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="clipboard-check" class="w-3 h-3"></i> Assignment · vídeo 2 min</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+            <div class="unit-row">
+              <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab"></i>
+              <div class="unit-icon"><i data-lucide="help-circle" class="w-4 h-4"></i></div>
+              <div class="flex-1">
+                <div class="text-sm font-semibold text-naval">8 · Avaliação final</div>
+                <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span class="flex items-center gap-1"><i data-lucide="help-circle" class="w-3 h-3"></i> Quiz · 20 questões · ≥80%</span>
+                  <span class="badge badge-info">Gera certificado</span>
+                </div>
+              </div>
+              <button class="icon-only p-2 hover:bg-gelo rounded-md text-slate-400" aria-label="Opções"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- sidebar direita -->
+        <aside class="space-y-4">
+          <div class="widget">
+            <div class="widget-header"><h3 class="widget-title">Sobre o curso</h3></div>
+            <div class="widget-body py-0">
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="folder" class="w-4 h-4 text-ceu"></i> Categoria</div><div class="text-sm font-semibold text-naval">Técnicas de venda</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="user" class="w-4 h-4 text-ceu"></i> Instrutor</div><div class="text-sm font-semibold text-naval">RENATO FORMAGIO</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="calendar-plus" class="w-4 h-4 text-ceu"></i> Criado</div><div class="text-sm font-semibold text-naval">28/01/2025</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="calendar-clock" class="w-4 h-4 text-ceu"></i> Atualizado</div><div class="text-sm font-semibold text-naval">31/01/2025</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="languages" class="w-4 h-4 text-ceu"></i> Idioma</div><div class="text-sm font-semibold text-naval">PT-BR</div></div>
+            </div>
+          </div>
+
+          <div class="widget">
+            <div class="widget-header"><h3 class="widget-title">Estatísticas</h3></div>
+            <div class="widget-body py-0">
+              <div class="kpi-row"><div class="kpi-label">Matriculados</div><div class="kpi-value">5</div></div>
+              <div class="kpi-row"><div class="kpi-label">Concluíram</div><div class="kpi-value text-success-fg">4</div></div>
+              <div class="kpi-row">
+                <div class="kpi-label">Taxa de conclusão</div>
+                <div class="kpi-value text-success-fg">80%</div>
+              </div>
+              <div class="kpi-row"><div class="kpi-label">Nota média (quiz)</div><div class="kpi-value">82</div></div>
+              <div class="kpi-row"><div class="kpi-label">Tempo médio</div><div class="kpi-value">1h 12m</div></div>
+            </div>
+          </div>
+
+          <button class="w-full px-4 py-3 bg-danger-bg text-danger-fg border border-danger-bd rounded-md text-sm font-semibold hover:bg-danger-bd hover:text-white transition-colors flex items-center justify-center gap-2">
+            <i data-lucide="archive" class="w-4 h-4"></i> Arquivar curso
+          </button>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================== 4. UNIT PLAYER ================== -->
+    <section id="page-unit-player" class="page">
+      <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+        <a href="#/courses" class="hover:text-naval">Cursos</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <a href="#/course-detail" class="hover:text-naval">5 Técnicas de Persuasão</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">Unidade 1</span>
+      </nav>
+
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+        <div>
+          <h1 class="text-xl font-bold text-naval mb-1">1 · Introdução: o vendedor consultor</h1>
+          <p class="text-sm text-slate-500 mb-4">Vídeo · 8 min · publicado por RENATO FORMAGIO</p>
+
+          <!-- video player mockup -->
+          <div class="video-mockup mb-4 shadow-lg">
+            <div class="absolute inset-0 flex items-center justify-center">
+              <button class="w-20 h-20 rounded-full bg-white/95 backdrop-blur flex items-center justify-center text-naval hover:scale-105 transition-transform shadow-xl" aria-label="Play">
+                <i data-lucide="play" class="w-9 h-9 ml-1" style="fill: currentColor"></i>
+              </button>
+            </div>
+            <!-- video controls bar -->
+            <div class="absolute bottom-0 left-0 right-0 p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-white text-xs font-medium">02:14</span>
+                <div class="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
+                  <div class="h-full bg-white" style="width: 28%"></div>
+                </div>
+                <span class="text-white text-xs">08:00</span>
+              </div>
+              <div class="flex items-center gap-3 text-white">
+                <button class="hover:scale-110 transition-transform" aria-label="Voltar 10s"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
+                <button class="hover:scale-110 transition-transform" aria-label="Play"><i data-lucide="play" class="w-6 h-6" style="fill: currentColor"></i></button>
+                <button class="hover:scale-110 transition-transform" aria-label="Avançar 10s"><i data-lucide="rotate-cw" class="w-5 h-5"></i></button>
+                <button class="ml-2 hover:scale-110 transition-transform" aria-label="Volume"><i data-lucide="volume-2" class="w-5 h-5"></i></button>
+                <div class="flex-1"></div>
+                <button class="text-xs font-bold border border-white/30 rounded px-2 py-0.5 hover:bg-white/10">1x</button>
+                <button class="text-xs font-bold border border-white/30 rounded px-2 py-0.5 hover:bg-white/10">CC</button>
+                <button class="hover:scale-110 transition-transform" aria-label="Tela cheia"><i data-lucide="maximize" class="w-5 h-5"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- description + actions -->
+          <div class="bg-white border border-borderd rounded-lg p-5 mb-4">
+            <h3 class="text-sm font-semibold text-naval mb-2">Sobre esta unidade</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">Nesta abertura, o instrutor Thiago Concer apresenta a diferença entre o vendedor "tirador de pedido" e o vendedor consultor — aquele que diagnostica a dor do cliente antes de oferecer a peça de suspensão certa. Anote as 3 perguntas-chave de diagnóstico mencionadas aos 3:15.</p>
+          </div>
+
+          <!-- nav buttons -->
+          <div class="flex flex-col sm:flex-row gap-3 justify-between">
+            <button class="px-4 py-3 bg-white border border-borderd rounded-md text-sm font-semibold text-naval hover:bg-gelo flex items-center justify-center gap-2">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i> Unidade anterior
+            </button>
+            <div class="flex gap-2 flex-col sm:flex-row">
+              <button class="px-4 py-3 bg-success-bg text-success-fg border border-success-bd rounded-md text-sm font-semibold hover:bg-success-bd hover:text-white flex items-center justify-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i> Marcar como concluído
+              </button>
+              <button class="px-4 py-3 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center justify-center gap-2 shadow-sm">
+                Próxima unidade <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- painel direito: índice -->
+        <aside class="lg:sticky lg:top-20 lg:self-start space-y-4">
+          <div class="widget">
+            <div class="widget-header">
+              <h3 class="widget-title">Progresso do curso</h3>
+              <span class="text-xs font-bold text-success-fg">40%</span>
+            </div>
+            <div class="px-5 pb-4">
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: 40%"></div></div>
+              <p class="text-xs text-slate-500 mt-2">3 de 8 unidades · estima-se 35 min restantes</p>
+            </div>
+          </div>
+
+          <div class="widget">
+            <div class="widget-header"><h3 class="widget-title">Conteúdo do curso</h3></div>
+            <div class="px-2 py-2">
+              <div class="unit-row completed">
+                <div class="unit-icon"><i data-lucide="check" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-naval truncate">1 · Introdução: vendedor consultor</div><div class="text-[10px] text-slate-500">Vídeo · 8 min</div></div>
+              </div>
+              <div class="unit-row completed">
+                <div class="unit-icon"><i data-lucide="check" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-naval truncate">2 · Tipos de objeção</div><div class="text-[10px] text-slate-500">Texto · 5 min</div></div>
+              </div>
+              <div class="unit-row current">
+                <div class="unit-icon" style="background: #FEF3C7; color: #92400E"><i data-lucide="play" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-naval truncate">3 · Quiz: identifique a objeção</div><div class="text-[10px] text-slate-500">Quiz · 10 questões</div></div>
+              </div>
+              <div class="unit-row">
+                <div class="unit-icon"><i data-lucide="video" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-slate-500 truncate">4 · Demo prática</div><div class="text-[10px] text-slate-400">Vídeo · 15 min</div></div>
+              </div>
+              <div class="unit-row">
+                <div class="unit-icon"><i data-lucide="file" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-slate-500 truncate">5 · Cheat-sheet</div><div class="text-[10px] text-slate-400">PDF</div></div>
+              </div>
+              <div class="unit-row">
+                <div class="unit-icon"><i data-lucide="package" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-slate-500 truncate">6 · Simulador SCORM</div><div class="text-[10px] text-slate-400">SCORM · 20 min</div></div>
+              </div>
+              <div class="unit-row">
+                <div class="unit-icon"><i data-lucide="clipboard-check" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-slate-500 truncate">7 · Tarefa: pitch gravado</div><div class="text-[10px] text-slate-400">Assignment</div></div>
+              </div>
+              <div class="unit-row">
+                <div class="unit-icon"><i data-lucide="award" class="w-4 h-4"></i></div>
+                <div class="flex-1 min-w-0"><div class="text-xs font-semibold text-slate-500 truncate">8 · Avaliação final</div><div class="text-[10px] text-slate-400">Quiz · gera cert.</div></div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================== 5. QUIZ TAKER ================== -->
+    <section id="page-quiz" class="page">
+      <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+        <a href="#/courses" class="hover:text-naval">Cursos</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <a href="#/course-detail" class="hover:text-naval">5 Técnicas de Persuasão</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">Quiz: identifique a objeção</span>
+      </nav>
+
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-xl font-bold text-naval">Quiz: identifique a objeção</h1>
+          <p class="text-sm text-slate-500">Tentativa 1 de 3 · nota mínima 70% · 10 questões</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 px-3 py-2 bg-warn-bg text-warn-fg border border-warn-bd rounded-md text-sm font-semibold">
+            <i data-lucide="timer" class="w-4 h-4"></i> 09:35
+          </div>
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo">Sair</button>
+        </div>
+      </div>
+
+      <!-- progress -->
+      <div class="bg-white border border-borderd rounded-lg p-4 mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold text-naval uppercase tracking-wider">Pergunta 3 de 10</span>
+          <span class="text-xs text-slate-500">2 respondidas · 7 restantes</span>
+        </div>
+        <div class="flex gap-1">
+          <span class="flex-1 h-1.5 bg-success-bd rounded"></span>
+          <span class="flex-1 h-1.5 bg-success-bd rounded"></span>
+          <span class="flex-1 h-1.5 bg-naval rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+          <span class="flex-1 h-1.5 bg-borderd rounded"></span>
+        </div>
+      </div>
+
+      <!-- question card -->
+      <div class="bg-white border border-borderd rounded-lg p-6 md:p-8 mb-4">
+        <h2 class="text-lg md:text-xl font-semibold text-naval mb-6 leading-snug">
+          Quando um cliente diz <em>"a mola da concorrência é mais barata"</em>, qual é a melhor resposta?
+        </h2>
+
+        <div class="space-y-3" role="radiogroup" aria-label="Alternativas">
+          <label class="quiz-option" tabindex="0">
+            <span class="opt-letter">A</span>
+            <div class="flex-1">
+              <input type="radio" name="q3" class="sr-only">
+              <div class="text-sm text-slate-800">"Posso fazer o mesmo preço, sem problema."</div>
+            </div>
+          </label>
+          <label class="quiz-option selected" tabindex="0">
+            <span class="opt-letter">B</span>
+            <div class="flex-1">
+              <input type="radio" name="q3" class="sr-only" checked>
+              <div class="text-sm text-slate-800">"Você já comparou as fichas técnicas? Nossa mola tem 30% mais ciclos de fadiga e garantia de 2 anos contra falha estrutural — vou te mostrar o teste."</div>
+            </div>
+          </label>
+          <label class="quiz-option" tabindex="0">
+            <span class="opt-letter">C</span>
+            <div class="flex-1">
+              <input type="radio" name="q3" class="sr-only">
+              <div class="text-sm text-slate-800">"A concorrência é sempre pior, fica longe."</div>
+            </div>
+          </label>
+          <label class="quiz-option" tabindex="0">
+            <span class="opt-letter">D</span>
+            <div class="flex-1">
+              <input type="radio" name="q3" class="sr-only">
+              <div class="text-sm text-slate-800">"Cada um tem o seu mercado, tudo bem se preferir."</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- footer ações -->
+      <div class="flex flex-col sm:flex-row gap-3 justify-between mb-12">
+        <button class="px-4 py-3 bg-white border border-borderd rounded-md text-sm font-semibold text-naval hover:bg-gelo flex items-center justify-center gap-2">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i> Pergunta anterior
+        </button>
+        <button class="px-6 py-3 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center justify-center gap-2 shadow-sm">
+          Próxima pergunta <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- estado pós-quiz (demonstração visual) -->
+      <div class="mt-12 pt-8 border-t border-dashed border-borderd">
+        <div class="text-xs uppercase tracking-widest text-slate-400 mb-3 text-center">⤴ Demonstração: tela de resultado pós-quiz</div>
+
+        <div class="bg-white border border-borderd rounded-lg overflow-hidden">
+          <div class="bg-success-bg p-6 text-center border-b border-success-bd">
+            <div class="w-16 h-16 bg-success-bd text-white rounded-full mx-auto flex items-center justify-center mb-3">
+              <i data-lucide="check" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-success-fg mb-1">8 / 10 — Aprovado!</h3>
+            <p class="text-sm text-success-fg">Sua melhor nota: 80% · necessário ≥70%</p>
+          </div>
+
+          <div class="p-6">
+            <h4 class="text-sm font-semibold text-naval mb-3">Resumo das respostas</h4>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
+                <i data-lucide="check-circle-2" class="w-5 h-5 text-success-bd"></i>
+                <span class="text-sm flex-1">Pergunta 1: Diagnóstico antes de oferecer</span>
+                <span class="text-xs text-slate-500">+10 pts</span>
+              </div>
+              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
+                <i data-lucide="check-circle-2" class="w-5 h-5 text-success-bd"></i>
+                <span class="text-sm flex-1">Pergunta 2: Escuta ativa do cliente</span>
+                <span class="text-xs text-slate-500">+10 pts</span>
+              </div>
+              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
+                <i data-lucide="check-circle-2" class="w-5 h-5 text-success-bd"></i>
+                <span class="text-sm flex-1">Pergunta 3: Resposta a objeção de preço</span>
+                <span class="text-xs text-slate-500">+10 pts</span>
+              </div>
+              <div class="flex items-center gap-3 p-2 rounded hover:bg-gelo">
+                <i data-lucide="x-circle" class="w-5 h-5 text-danger-bd"></i>
+                <span class="text-sm flex-1">Pergunta 4: Identificação de comprador técnico</span>
+                <span class="text-xs text-danger-fg font-semibold">incorreto</span>
+              </div>
+              <div class="text-xs text-slate-500 pt-2">… +6 perguntas (5 corretas, 1 incorreta)</div>
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-borderd flex flex-col sm:flex-row gap-3 justify-between items-center">
+              <div class="flex items-center gap-2 text-sm">
+                <i data-lucide="award" class="w-5 h-5 text-warn-bd"></i>
+                <span class="text-naval"><strong>+80 pontos</strong> ganhos · badge <strong>"Quiz Master"</strong> desbloqueada</span>
+              </div>
+              <div class="flex gap-2 flex-col sm:flex-row">
+                <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4"></i> Feedback detalhado</button>
+                <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2">Próxima unidade <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================== 6. LEADERBOARD ================== -->
+    <section id="page-leaderboard" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval flex items-center gap-2">
+            <i data-lucide="trophy" class="w-7 h-7 text-warn-bd"></i> Ranking de pontos
+          </h1>
+          <p class="text-sm text-slate-500 mt-1">7 vendedores ativos · pontuação acumulada desde 2025-01</p>
+        </div>
+        <div class="flex gap-2">
+          <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+            <option>Total acumulado</option><option>Este mês</option><option>Esta semana</option><option>Hoje</option>
+          </select>
+          <button class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Filtrar"><i data-lucide="filter" class="w-4 h-4"></i></button>
+        </div>
+      </div>
+
+      <!-- pódio -->
+      <div class="grid grid-cols-3 gap-3 md:gap-6 mb-8 max-w-3xl mx-auto">
+        <!-- 2º -->
+        <div class="flex flex-col items-center pt-8">
+          <div class="relative mb-3">
+            <div class="avatar avatar-lg" style="width:72px;height:72px;font-size:24px;background: linear-gradient(135deg,#94A3B8,#CBD5E1)">IT</div>
+            <div class="absolute -bottom-2 -right-2 w-8 h-8 rounded-full badge-trophy-silver text-white font-bold flex items-center justify-center text-sm shadow-md">2</div>
+          </div>
+          <div class="text-xs font-semibold text-naval text-center line-clamp-1">Igor Teixeira</div>
+          <div class="text-[11px] text-slate-500 mb-2">18 badges</div>
+          <div class="w-full bg-slate-200 rounded-t-lg pt-3 pb-2 text-center" style="height: 80px;">
+            <div class="text-xl font-extrabold text-slate-700">5.434</div>
+            <div class="text-[10px] uppercase tracking-wider text-slate-500">pontos</div>
+          </div>
+        </div>
+        <!-- 1º -->
+        <div class="flex flex-col items-center">
+          <i data-lucide="crown" class="w-6 h-6 text-warn-bd mb-1"></i>
+          <div class="relative mb-3">
+            <div class="avatar avatar-lg" style="background: linear-gradient(135deg,#F59E0B,#FBBF24)">LA</div>
+            <div class="absolute -bottom-2 -right-2 w-9 h-9 rounded-full badge-trophy text-white font-extrabold flex items-center justify-center text-base shadow-lg">1</div>
+          </div>
+          <div class="text-sm font-bold text-naval text-center line-clamp-1">Luiz Argel</div>
+          <div class="text-xs text-slate-500 mb-2">19 badges</div>
+          <div class="w-full bg-warn-bg rounded-t-lg pt-3 pb-2 text-center border-2 border-warn-bd" style="height: 120px;">
+            <div class="text-2xl font-extrabold text-warn-fg">5.496</div>
+            <div class="text-[10px] uppercase tracking-wider text-warn-fg">pontos</div>
+            <div class="text-[10px] text-warn-fg mt-1 font-bold">🔥 LÍDER</div>
+          </div>
+        </div>
+        <!-- 3º -->
+        <div class="flex flex-col items-center pt-12">
+          <div class="relative mb-3">
+            <div class="avatar avatar-lg" style="width:64px;height:64px;font-size:20px;background: linear-gradient(135deg,#B45309,#D97706)">MP</div>
+            <div class="absolute -bottom-2 -right-2 w-8 h-8 rounded-full badge-trophy-bronze text-white font-bold flex items-center justify-center text-sm shadow-md">3</div>
+          </div>
+          <div class="text-xs font-semibold text-naval text-center line-clamp-1">Marcos Paulo</div>
+          <div class="text-[11px] text-slate-500 mb-2">17 badges</div>
+          <div class="w-full bg-slate-200 rounded-t-lg pt-3 pb-2 text-center" style="height: 60px;">
+            <div class="text-xl font-extrabold text-slate-700">5.373</div>
+            <div class="text-[10px] uppercase tracking-wider text-slate-500">pontos</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- tabela ranking 4+ -->
+      <div class="bg-white border border-borderd rounded-lg overflow-hidden">
+        <div class="p-4 border-b border-borderd flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-naval">Demais posições</h3>
+          <button class="text-xs text-naval font-semibold hover:underline flex items-center gap-1"><i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar CSV</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="w-12">#</th>
+                <th>Vendedor</th>
+                <th class="hidden md:table-cell">Filial</th>
+                <th class="text-right">Pontos</th>
+                <th class="hidden sm:table-cell text-center">Badges</th>
+                <th class="hidden lg:table-cell">Última atividade</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="font-bold text-slate-500">4</td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="avatar" style="background: linear-gradient(135deg,#7DA4C6,#113C58)">GS</div>
+                    <div><div class="font-semibold text-naval">Guilherme Silvestre Paixao</div><div class="text-xs text-slate-500 md:hidden">Maringá</div></div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell"><span class="badge badge-info">MGA</span></td>
+                <td class="text-right font-bold text-naval">5.233</td>
+                <td class="hidden sm:table-cell text-center">17</td>
+                <td class="hidden lg:table-cell text-xs text-slate-500">01/11/2025</td>
+              </tr>
+              <tr>
+                <td class="font-bold text-slate-500">5</td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="avatar" style="background: linear-gradient(135deg,#F59E0B,#92400E)">GP</div>
+                    <div><div class="font-semibold text-naval">Gilson Pereira</div><div class="text-xs text-slate-500 md:hidden">L. de Bauru</div></div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell"><span class="badge badge-info">LEM</span></td>
+                <td class="text-right font-bold text-naval">1.000</td>
+                <td class="hidden sm:table-cell text-center">7</td>
+                <td class="hidden lg:table-cell text-xs text-slate-500">18/05/2026</td>
+              </tr>
+              <tr>
+                <td class="font-bold text-slate-500">6</td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="avatar" style="background: linear-gradient(135deg,#10B981,#065F46)">GN</div>
+                    <div><div class="font-semibold text-naval">Gabriel Napel</div><div class="text-xs text-slate-500 md:hidden">Maringá</div></div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell"><span class="badge badge-info">MGA</span></td>
+                <td class="text-right font-bold text-naval">680</td>
+                <td class="hidden sm:table-cell text-center">3</td>
+                <td class="hidden lg:table-cell text-xs text-slate-500">19/05/2026</td>
+              </tr>
+              <tr class="bg-gelo">
+                <td class="font-bold text-naval">7</td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="avatar">R</div>
+                    <div><div class="font-semibold text-naval flex items-center gap-2">Renato Formagio Parra <span class="badge badge-success text-[9px]">VOCÊ</span></div><div class="text-xs text-slate-500 md:hidden">Maringá</div></div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell"><span class="badge badge-info">MGA</span></td>
+                <td class="text-right font-bold text-naval">425</td>
+                <td class="hidden sm:table-cell text-center">2</td>
+                <td class="hidden lg:table-cell text-xs text-slate-500">há 6 min</td>
+              </tr>
+              <tr class="opacity-60">
+                <td class="font-bold text-slate-500">8</td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="avatar" style="background: linear-gradient(135deg,#94A3B8,#CBD5E1)">LA</div>
+                    <div><div class="font-semibold text-slate-600 flex items-center gap-2">Luiz Argel <span class="badge badge-neutral text-[9px]">Inativo</span></div></div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell"><span class="badge badge-info">PTA</span></td>
+                <td class="text-right font-bold text-slate-500">0</td>
+                <td class="hidden sm:table-cell text-center">0</td>
+                <td class="hidden lg:table-cell text-xs text-slate-500">07/10/2025</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- mini legend -->
+      <div class="mt-4 text-xs text-slate-500 flex flex-wrap items-center gap-4">
+        <span class="flex items-center gap-1.5"><i data-lucide="info" class="w-3.5 h-3.5"></i> Pontos somam login (25), unidade concluída (25), curso completo (150) e certificação (150).</span>
+      </div>
+    </section>
+
+    <!-- ================== 7. PROFILE ================== -->
+    <section id="page-profile" class="page">
+      <!-- header card -->
+      <div class="bg-white border border-borderd rounded-lg overflow-hidden mb-6">
+        <div class="h-24 md:h-32" style="background: linear-gradient(135deg, #042C48 0%, #113C58 50%, #7DA4C6 100%);"></div>
+        <div class="px-6 pb-6 -mt-12 flex flex-col md:flex-row md:items-end gap-4">
+          <div class="avatar avatar-lg ring-4 ring-white shadow-lg" style="background: linear-gradient(135deg,#113C58,#7DA4C6)">R</div>
+          <div class="flex-1 md:pb-2">
+            <h1 class="text-xl md:text-2xl font-bold text-naval">RENATO FORMAGIO PARRA</h1>
+            <div class="text-sm text-slate-500 flex flex-wrap items-center gap-2 mt-1">
+              <span class="badge badge-info"><i data-lucide="shield-check" class="w-3 h-3"></i> Administrador</span>
+              <span>·</span>
+              <span class="flex items-center gap-1"><i data-lucide="mail" class="w-3.5 h-3.5"></i> renatonapel@gmail.com</span>
+              <span class="hidden md:inline">·</span>
+              <span class="hidden md:flex items-center gap-1"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Maringá, BR</span>
+            </div>
+          </div>
+          <div class="flex gap-2 md:pb-2">
+            <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4"></i> Mensagem</button>
+            <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2"><i data-lucide="pencil" class="w-4 h-4"></i> Editar perfil</button>
+          </div>
+        </div>
+
+        <!-- stats row -->
+        <div class="border-t border-borderd grid grid-cols-2 md:grid-cols-5 divide-x divide-borderd">
+          <div class="px-4 py-4 text-center">
+            <div class="text-2xl font-extrabold text-naval">1</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Nível</div>
+          </div>
+          <div class="px-4 py-4 text-center">
+            <div class="text-2xl font-extrabold text-naval">425</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Pontos</div>
+          </div>
+          <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd">
+            <div class="text-2xl font-extrabold text-warn-bd">2</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Badges</div>
+          </div>
+          <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd">
+            <div class="text-2xl font-extrabold text-naval">2</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Cursos atribuídos</div>
+          </div>
+          <div class="px-4 py-4 text-center border-t md:border-t-0 border-borderd col-span-2 md:col-span-1">
+            <div class="text-2xl font-extrabold text-slate-500">0</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 mt-1">Concluídos</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2">
+          <!-- tabs -->
+          <div class="flex border-b border-borderd mb-4 overflow-x-auto">
+            <button class="tab-trigger active">Meus cursos</button>
+            <button class="tab-trigger">Badges (2)</button>
+            <button class="tab-trigger">Certificados (0)</button>
+            <button class="tab-trigger">Histórico</button>
+          </div>
+
+          <!-- lista cursos -->
+          <div class="space-y-3">
+            <div class="bg-white border border-borderd rounded-lg p-4 flex items-center gap-4">
+              <div class="skeleton-thumb w-16 h-16 rounded-md flex-shrink-0 flex items-center justify-center">
+                <i data-lucide="phone-call" class="w-6 h-6 text-white/80"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-semibold text-naval mb-1 line-clamp-1">5 Técnicas de Persuasão para Fechar Vendas</h3>
+                <div class="text-xs text-slate-500 mb-2">Em andamento · 3 de 8 unidades · iniciado há 2 dias</div>
+                <div class="progress-bar"><div class="progress-bar-fill" style="width: 40%"></div></div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-xs font-bold text-naval">40%</div>
+                <button class="mt-2 px-3 py-1.5 bg-naval text-white rounded-md text-xs font-semibold hover:opacity-90 btn-small">Continuar</button>
+              </div>
+            </div>
+            <div class="bg-white border border-borderd rounded-lg p-4 flex items-center gap-4">
+              <div class="skeleton-thumb-3 w-16 h-16 rounded-md flex-shrink-0 flex items-center justify-center">
+                <i data-lucide="shield-check" class="w-6 h-6 text-white/80"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-sm font-semibold text-naval mb-1 line-clamp-1">Onboarding Napel — Cultura e Compliance</h3>
+                <div class="text-xs text-slate-500 mb-2">Não iniciado · 5 unidades · atribuído há 5 dias</div>
+                <div class="progress-bar"><div class="progress-bar-fill" style="width: 0%"></div></div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-xs font-bold text-slate-400">0%</div>
+                <button class="mt-2 px-3 py-1.5 bg-white border border-borderd text-naval rounded-md text-xs font-semibold hover:bg-gelo btn-small">Começar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- badges grid -->
+          <div class="mt-8">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-semibold text-naval flex items-center gap-2"><i data-lucide="award" class="w-4 h-4 text-warn-bd"></i> Badges conquistadas</h3>
+              <a href="#" class="text-xs text-naval font-semibold hover:underline">Ver todas</a>
+            </div>
+            <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+              <div class="bg-white border border-borderd rounded-lg p-3 text-center hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full badge-trophy text-white flex items-center justify-center shadow-md">
+                  <i data-lucide="rocket" class="w-6 h-6"></i>
+                </div>
+                <div class="text-[11px] font-semibold text-naval line-clamp-1">First Steps</div>
+                <div class="text-[10px] text-slate-500">07/10/2024</div>
+              </div>
+              <div class="bg-white border border-borderd rounded-lg p-3 text-center hover:shadow-md transition-shadow">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-naval text-white flex items-center justify-center shadow-md">
+                  <i data-lucide="user-check" class="w-6 h-6"></i>
+                </div>
+                <div class="text-[11px] font-semibold text-naval line-clamp-1">Profile Done</div>
+                <div class="text-[10px] text-slate-500">30/04/2026</div>
+              </div>
+              <div class="bg-white border border-borderd rounded-lg p-3 text-center opacity-40">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center">
+                  <i data-lucide="lock" class="w-5 h-5"></i>
+                </div>
+                <div class="text-[11px] font-semibold text-slate-500 line-clamp-1">Quiz Master</div>
+                <div class="text-[10px] text-slate-400">Bloqueado</div>
+              </div>
+              <div class="bg-white border border-borderd rounded-lg p-3 text-center opacity-40">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center">
+                  <i data-lucide="lock" class="w-5 h-5"></i>
+                </div>
+                <div class="text-[11px] font-semibold text-slate-500 line-clamp-1">Marathoner</div>
+                <div class="text-[10px] text-slate-400">Bloqueado</div>
+              </div>
+              <div class="bg-white border border-borderd rounded-lg p-3 text-center opacity-40">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center">
+                  <i data-lucide="lock" class="w-5 h-5"></i>
+                </div>
+                <div class="text-[11px] font-semibold text-slate-500 line-clamp-1">Perfectionist</div>
+                <div class="text-[10px] text-slate-400">Bloqueado</div>
+              </div>
+              <div class="bg-white border border-borderd rounded-lg p-3 text-center opacity-40">
+                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center">
+                  <i data-lucide="lock" class="w-5 h-5"></i>
+                </div>
+                <div class="text-[11px] font-semibold text-slate-500 line-clamp-1">Top 3</div>
+                <div class="text-[10px] text-slate-400">Bloqueado</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- sidebar dados -->
+        <aside class="space-y-4">
+          <div class="widget">
+            <div class="widget-header"><h3 class="widget-title">Informações</h3></div>
+            <div class="widget-body py-0">
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="user" class="w-4 h-4 text-ceu"></i> Login</div><div class="text-sm font-mono font-semibold text-naval">napel</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="clock" class="w-4 h-4 text-ceu"></i> Fuso</div><div class="text-sm font-semibold text-naval">São Paulo</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="languages" class="w-4 h-4 text-ceu"></i> Idioma</div><div class="text-sm font-semibold text-naval">Português BR</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="calendar" class="w-4 h-4 text-ceu"></i> Membro desde</div><div class="text-sm font-semibold text-naval">07/10/2024</div></div>
+              <div class="kpi-row"><div class="kpi-label"><i data-lucide="log-in" class="w-4 h-4 text-ceu"></i> Último acesso</div><div class="text-sm font-semibold text-success-fg">há 6 min</div></div>
+            </div>
+          </div>
+
+          <div class="widget">
+            <div class="widget-header"><h3 class="widget-title">Próximo nível</h3></div>
+            <div class="widget-body">
+              <div class="flex items-center justify-between text-xs mb-2">
+                <span class="font-semibold text-naval">Nível 1</span>
+                <span class="text-slate-500">425 / 3000 pts</span>
+              </div>
+              <div class="progress-bar mb-3"><div class="progress-bar-fill" style="width: 14%"></div></div>
+              <p class="text-xs text-slate-500">Faltam <strong class="text-naval">2.575 pts</strong> para chegar ao Nível 2 (ou complete 5 cursos · 5 badges).</p>
+            </div>
+          </div>
+
+          <div class="widget">
+            <div class="widget-header"><h3 class="widget-title">Segurança</h3></div>
+            <div class="widget-body space-y-3">
+              <button class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
+                <i data-lucide="key" class="w-4 h-4 text-ceu"></i>
+                <span class="text-sm flex-1 text-naval">Alterar senha</span>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+              </button>
+              <button class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
+                <i data-lucide="smartphone" class="w-4 h-4 text-ceu"></i>
+                <span class="text-sm flex-1 text-naval">Autenticação 2 fatores</span>
+                <span class="badge badge-warn">Inativa</span>
+              </button>
+              <button class="w-full text-left flex items-center gap-3 p-2 rounded-md hover:bg-gelo">
+                <i data-lucide="log-out" class="w-4 h-4 text-danger-bd"></i>
+                <span class="text-sm flex-1 text-danger-fg font-semibold">Encerrar todas as sessões</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================== 8. MATRIZ DE FORMAÇÃO ================== -->
+    <section id="page-matrix" class="page">
+      <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+        <a href="#/dashboard" class="hover:text-naval">Home</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span>Relatórios</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">Matriz de formação</span>
+      </nav>
+
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+        <div>
+          <h1 class="text-2xl font-bold text-naval flex items-center gap-2">
+            <i data-lucide="grid-3x3" class="w-7 h-7 text-naval"></i> Matriz de formação
+          </h1>
+          <p class="text-sm text-slate-500 mt-1">Visão pivot · 7 vendedores × 6 cursos · status sincronizado em tempo real</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2">
+            <i data-lucide="eye" class="w-4 h-4"></i> Visualizar <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+          </button>
+          <div class="flex">
+            <button class="px-4 py-2.5 bg-naval text-white rounded-l-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Exportar Excel
+            </button>
+            <button class="px-2.5 bg-naval text-white border-l border-white/20 rounded-r-md hover:opacity-90 icon-only" aria-label="Mais opções de export"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- sub-nav relatórios -->
+      <div class="reports-subnav">
+        <a class="subnav-item">Visão geral</a>
+        <a class="subnav-item">Utilizadores</a>
+        <a class="subnav-item">Cursos</a>
+        <a class="subnav-item">Caminhos de aprendizagem</a>
+        <a class="subnav-item">Ramificações</a>
+        <a class="subnav-item">Grupos</a>
+        <a class="subnav-item">Ativ. de aprendizagem</a>
+        <a class="subnav-item active">Matriz de formação</a>
+        <a class="subnav-item">Cronologia</a>
+        <a class="subnav-item">Personalizado</a>
+        <a class="subnav-item">Análise</a>
+      </div>
+
+      <!-- filtros -->
+      <div class="bg-white border border-borderd rounded-lg p-3 flex flex-col md:flex-row gap-2 mb-4 items-stretch md:items-center">
+        <div class="flex-1 relative max-w-sm">
+          <input type="search" placeholder="Procurar utilizador…" class="w-full pl-10 pr-4 h-10 rounded-md bg-gelo border border-transparent focus:bg-white focus:border-borders text-sm">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+        </div>
+        <button class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm icon-only md:icon-only" aria-label="Filtros avançados">
+          <i data-lucide="filter" class="w-4 h-4"></i><span class="hidden md:inline">Filtros</span>
+        </button>
+        <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option>Todos os grupos</option><option>MGA (Maringá)</option><option>LEM (L. de Bauru)</option><option>PTA (Paranaguá)</option>
+        </select>
+        <div class="md:ml-auto text-xs text-slate-500 flex items-center gap-2">
+          <i data-lucide="info" class="w-3.5 h-3.5"></i> Clique numa célula para abrir detalhes do progresso
+        </div>
+      </div>
+
+      <!-- matrix -->
+      <div class="bg-white border border-borderd rounded-lg overflow-hidden">
+        <div class="matrix-wrap">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th class="user-header">
+                  Utilizadores <i data-lucide="arrow-up" class="w-3 h-3 inline ml-1"></i>
+                </th>
+                <th class="course-col"><div class="course-label">5 TÉCNICAS DE PERSUASÃO PARA FECHAR VENDAS</div></th>
+                <th class="course-col"><div class="course-label">Como criar uma ROTINA COMERCIAL eficaz</div></th>
+                <th class="course-col"><div class="course-label">Curso Avançado Vendas</div></th>
+                <th class="course-col"><div class="course-label">Curso Avançado: Sistemas de freios</div></th>
+                <th class="course-col"><div class="course-label">FIDELIZAÇÃO DE CLIENTES (05 dicas)</div></th>
+                <th class="course-col"><div class="course-label">Vendedor Bonzinho Não Vende</div></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="user-cell">Gabriel Napel</td>
+                <td><div class="matrix-cell empty" title="Não iniciado"></div></td>
+                <td><div class="matrix-cell empty" title="Não iniciado"></div></td>
+                <td><div class="matrix-cell empty" title="Não iniciado"></div></td>
+                <td><div class="matrix-cell started" title="Iniciado"></div></td>
+                <td><div class="matrix-cell empty" title="Não iniciado"></div></td>
+                <td><div class="matrix-cell empty" title="Não iniciado"></div></td>
+              </tr>
+              <tr>
+                <td class="user-cell">Gilson Pereira</td>
+                <td><div class="matrix-cell completed" title="Concluído em 18/05"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed" title="Concluído em 16/05"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell in-progress" title="Em progresso — 60%"></div></td>
+                <td><div class="matrix-cell empty"></div></td>
+                <td><div class="matrix-cell empty"></div></td>
+                <td><div class="matrix-cell empty"></div></td>
+              </tr>
+              <tr>
+                <td class="user-cell">Guilherme SILVESTRE PAIXAO</td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+              </tr>
+              <tr>
+                <td class="user-cell">IGOR TEIXEIRA DA SILVA</td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+              </tr>
+              <tr>
+                <td class="user-cell">Luiz Argel</td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+              </tr>
+              <tr>
+                <td class="user-cell">Marcos PAULO MENDES DA SILVA</td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+                <td><div class="matrix-cell completed"><i data-lucide="check" class="w-4 h-4"></i></div></td>
+              </tr>
+              <tr>
+                <td class="user-cell" style="background:#EBF7FA">RENATO FORMAGIO PARRA <span class="badge badge-success text-[9px]">VOCÊ</span></td>
+                <td><div class="matrix-cell empty"></div></td>
+                <td><div class="matrix-cell empty"></div></td>
+                <td><div class="matrix-cell in-progress" title="Em progresso — 40%"></div></td>
+                <td><div class="matrix-cell in-progress" title="Em progresso — 18%"></div></td>
+                <td><div class="matrix-cell empty"></div></td>
+                <td><div class="matrix-cell empty"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- footer da matrix -->
+        <div class="border-t border-borderd p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-xs">
+          <div class="flex flex-wrap items-center gap-4 text-slate-500">
+            <span class="flex items-center gap-1.5"><div class="matrix-cell completed" style="width:18px;height:18px"><i data-lucide="check" class="w-2.5 h-2.5"></i></div> Concluído</span>
+            <span class="flex items-center gap-1.5"><div class="matrix-cell in-progress" style="width:18px;height:18px"></div> Em progresso</span>
+            <span class="flex items-center gap-1.5"><div class="matrix-cell started" style="width:18px;height:18px"></div> Iniciado</span>
+            <span class="flex items-center gap-1.5"><div class="matrix-cell empty" style="width:18px;height:18px"></div> Não iniciado</span>
+            <span class="flex items-center gap-1.5"><div class="matrix-cell failed" style="width:18px;height:18px"><i data-lucide="x" class="w-2.5 h-2.5"></i></div> Reprovado</span>
+          </div>
+          <div class="flex items-center gap-3 text-slate-500">
+            <span>7 utilizadores · 6 cursos</span>
+            <button class="px-3 py-1.5 border border-borderd rounded-md text-naval hover:bg-gelo flex items-center gap-1.5 btn-small">
+              <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Colunas
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- insights / kpis derivados -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+        <div class="widget">
+          <div class="widget-body py-3">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Conclusão geral</div>
+            <div class="text-xl font-extrabold text-success-fg">71%</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">30 de 42 cell. concluídas</div>
+          </div>
+        </div>
+        <div class="widget">
+          <div class="widget-body py-3">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Top vendedor</div>
+            <div class="text-base font-bold text-naval line-clamp-1">Luiz Argel · 100%</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">6 de 6 cursos completos</div>
+          </div>
+        </div>
+        <div class="widget">
+          <div class="widget-body py-3">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Em atraso</div>
+            <div class="text-xl font-extrabold text-warn-fg">2 cursos</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">Gabriel, Renato</div>
+          </div>
+        </div>
+        <div class="widget">
+          <div class="widget-body py-3">
+            <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Curso menos engajado</div>
+            <div class="text-base font-bold text-naval line-clamp-1">Sistemas de freios</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">só 4 de 7 iniciaram</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================== 9. DETALHE DE USUÁRIO (ADMIN) ================== -->
+    <section id="page-user-detail" class="page">
+      <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-3" aria-label="Breadcrumb">
+        <a href="#/dashboard" class="hover:text-naval">Home</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <a href="#/user-detail" class="hover:text-naval">Utilizadores</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">Renato Formagio Parra</span>
+      </nav>
+
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+        <div class="flex items-start gap-4">
+          <div class="avatar avatar-lg shrink-0" style="width:64px;height:64px;font-size:24px">R</div>
+          <div>
+            <h1 class="text-2xl font-bold text-naval">RENATO FORMAGIO PARRA</h1>
+            <div class="text-sm text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+              <span class="badge badge-info"><i data-lucide="shield-check" class="w-3 h-3"></i> SuperAdmin</span>
+              <span class="badge badge-success">Ativo</span>
+              <span>·</span>
+              <span class="flex items-center gap-1"><i data-lucide="mail" class="w-3.5 h-3.5"></i> renatonapel@gmail.com</span>
+              <span>·</span>
+              <span class="flex items-center gap-1"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> Último: há 6 min</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4"></i></button>
+          <button class="px-3 py-2.5 bg-white border border-borderd rounded-md text-sm text-naval hover:bg-gelo flex items-center gap-2"><i data-lucide="user-cog" class="w-4 h-4"></i> Personificar</button>
+          <button class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <i data-lucide="pencil" class="w-4 h-4"></i> Editar utilizador
+          </button>
+        </div>
+      </div>
+
+      <!-- abas -->
+      <div class="flex border-b border-borderd mb-4 overflow-x-auto">
+        <button class="tab-trigger active flex items-center gap-1.5"><i data-lucide="book-open" class="w-4 h-4"></i> Cursos <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">6</span></button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span></button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span></button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="credit-card" class="w-4 h-4"></i> Pagamentos</button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="file" class="w-4 h-4"></i> Arquivos</button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4"></i> Info</button>
+      </div>
+
+      <!-- toolbar -->
+      <div class="bg-white border border-borderd rounded-lg p-3 flex flex-col md:flex-row gap-2 mb-4 items-stretch md:items-center">
+        <div class="flex-1 relative max-w-sm">
+          <input type="search" placeholder="Procurar curso…" class="w-full pl-10 pr-4 h-10 rounded-md bg-gelo border border-transparent focus:bg-white focus:border-borders text-sm">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+        </div>
+        <button class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm" aria-label="Filtros">
+          <i data-lucide="filter" class="w-4 h-4"></i><span class="hidden md:inline">Filtros</span>
+        </button>
+        <button class="h-10 px-3 rounded-md bg-gelo text-naval border border-borders flex items-center gap-2 text-sm font-semibold">
+          <i data-lucide="user-check" class="w-4 h-4"></i> Ativo
+        </button>
+        <div class="md:ml-auto flex gap-2">
+          <button class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</button>
+          <button class="h-10 px-4 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Inscrever-se no curso
+          </button>
+        </div>
+      </div>
+
+      <!-- tabela de cursos -->
+      <div class="bg-white border border-borderd rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="w-12"><input type="checkbox" class="rounded border-borders"></th>
+                <th>
+                  <button class="flex items-center gap-1 hover:text-naval">Curso <i data-lucide="chevron-up" class="w-3 h-3"></i></button>
+                </th>
+                <th class="hidden md:table-cell">Código</th>
+                <th>Papel</th>
+                <th class="hidden md:table-cell">Data matrícula</th>
+                <th class="hidden lg:table-cell">Data conclusão</th>
+                <th class="w-24 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="bg-gelo">
+                <td><input type="checkbox" class="rounded border-borders" checked></td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-thumb w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="phone-call" class="w-4 h-4 text-white"></i></div>
+                    <div class="font-semibold text-naval line-clamp-1">5 TÉCNICAS DE PERSUASÃO PARA FECHAR VENDAS</div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell"><code class="text-xs bg-white px-2 py-1 rounded text-slate-500">VND-101</code></td>
+                <td>
+                  <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+                    <option>Professor</option><option>Estudante</option><option>Trainer</option>
+                  </select>
+                </td>
+                <td class="hidden md:table-cell text-slate-600">28/01/2025</td>
+                <td class="hidden lg:table-cell text-slate-400">—</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1">
+                    <button class="p-2 hover:bg-white rounded-md icon-only" aria-label="Visualizar progresso"><i data-lucide="eye" class="w-4 h-4 text-naval"></i></button>
+                    <button class="p-2 hover:bg-white rounded-md icon-only" aria-label="Desmatricular"><i data-lucide="user-minus" class="w-4 h-4 text-danger-bd"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" class="rounded border-borders"></td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-thumb-2 w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="route" class="w-4 h-4 text-white"></i></div>
+                    <div class="font-medium text-slate-700 line-clamp-1">Como criar uma ROTINA COMERCIAL eficaz</div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell text-slate-400">—</td>
+                <td>
+                  <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+                    <option>Professor</option><option>Estudante</option><option>Trainer</option>
+                  </select>
+                </td>
+                <td class="hidden md:table-cell text-slate-600">08/02/2025</td>
+                <td class="hidden lg:table-cell text-slate-400">—</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1">
+                    <button class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4 text-naval"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" class="rounded border-borders"></td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-thumb-3 w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="trending-up" class="w-4 h-4 text-white"></i></div>
+                    <div class="font-medium text-slate-700 line-clamp-1">Curso Avançado Vendas</div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell text-slate-400">—</td>
+                <td>
+                  <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+                    <option selected>Estudante</option><option>Professor</option><option>Trainer</option>
+                  </select>
+                </td>
+                <td class="hidden md:table-cell text-slate-600">18/06/2025</td>
+                <td class="hidden lg:table-cell text-slate-400">—</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1">
+                    <button class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4 text-naval"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" class="rounded border-borders"></td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-thumb-4 w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="cog" class="w-4 h-4 text-white"></i></div>
+                    <div class="font-medium text-slate-700 line-clamp-1">Curso Avançado: Sistemas de Suspensão</div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell text-slate-400">—</td>
+                <td>
+                  <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+                    <option selected>Estudante</option><option>Professor</option><option>Trainer</option>
+                  </select>
+                </td>
+                <td class="hidden md:table-cell text-slate-600">17/06/2025</td>
+                <td class="hidden lg:table-cell text-slate-400">—</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1">
+                    <button class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4 text-naval"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" class="rounded border-borders"></td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-thumb w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="heart-handshake" class="w-4 h-4 text-white"></i></div>
+                    <div class="font-medium text-slate-700 line-clamp-1">FIDELIZAÇÃO DE CLIENTES (05 Dicas Incríveis)</div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell text-slate-400">—</td>
+                <td>
+                  <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+                    <option>Professor</option><option>Estudante</option><option>Trainer</option>
+                  </select>
+                </td>
+                <td class="hidden md:table-cell text-slate-600">30/01/2025</td>
+                <td class="hidden lg:table-cell text-slate-400">—</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1">
+                    <button class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4 text-naval"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" class="rounded border-borders"></td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="skeleton-thumb-2 w-9 h-9 rounded-md flex-shrink-0 flex items-center justify-center"><i data-lucide="message-circle-warning" class="w-4 h-4 text-white"></i></div>
+                    <div class="font-medium text-slate-700 line-clamp-1">Vendedor Bonzinho Não Vende — Thiago Concer</div>
+                  </div>
+                </td>
+                <td class="hidden md:table-cell text-slate-400">—</td>
+                <td>
+                  <select class="h-8 px-2 border border-borderd rounded bg-white text-xs font-medium text-naval">
+                    <option>Professor</option><option>Estudante</option><option>Trainer</option>
+                  </select>
+                </td>
+                <td class="hidden md:table-cell text-slate-600">28/01/2025</td>
+                <td class="hidden lg:table-cell text-slate-400">—</td>
+                <td>
+                  <div class="flex items-center justify-end gap-1">
+                    <button class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Mais ações"><i data-lucide="more-horizontal" class="w-4 h-4 text-naval"></i></button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="border-t border-borderd p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-500">
+          <span>6 cursos atribuídos · 0 concluídos · 2 em progresso</span>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1.5 border border-borderd rounded-md text-naval hover:bg-gelo flex items-center gap-1.5 btn-small"><i data-lucide="user-x" class="w-3.5 h-3.5"></i> Desmatricular selecionados</button>
+            <button class="px-3 py-1.5 border border-borderd rounded-md text-naval hover:bg-gelo flex items-center gap-1.5 btn-small"><i data-lucide="repeat" class="w-3.5 h-3.5"></i> Resetar progresso</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- sidebar info compacta abaixo -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+        <div class="widget"><div class="widget-body py-3"><div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Cadastro</div><div class="text-sm font-bold text-naval">07/10/2024</div></div></div>
+        <div class="widget"><div class="widget-body py-3"><div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Login</div><div class="text-sm font-bold text-naval font-mono">napel</div></div></div>
+        <div class="widget"><div class="widget-body py-3"><div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Fuso</div><div class="text-sm font-bold text-naval">SP</div></div></div>
+        <div class="widget"><div class="widget-body py-3"><div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Nível</div><div class="text-sm font-bold text-naval">1 · 425 pts</div></div></div>
+        <div class="widget col-span-2 md:col-span-1"><div class="widget-body py-3"><div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Filial</div><div class="text-sm font-bold text-naval">MGA · Maringá</div></div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- footer minimal -->
+  <footer class="mt-auto px-4 lg:px-8 py-4 text-xs text-slate-400 border-t border-borderd text-center">
+    Napel LMS · mockup v0.1 · <a href="https://napel.com.br" class="hover:text-naval">napel.com.br</a> · powered by ❤ Clavis
+  </footer>
+</div>
+
+<script>
+  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail'];
+
+  function showPage(name) {
+    const target = pages.includes(name) ? name : 'dashboard';
+    pages.forEach(p => {
+      const el = document.getElementById('page-' + p);
+      if (el) el.classList.toggle('active', p === target);
+    });
+    document.querySelectorAll('[data-nav]').forEach(a => {
+      const isActive = a.dataset.nav === target ||
+                       (target === 'course-detail' && a.dataset.nav === 'courses') ||
+                       (target === 'unit-player' && a.dataset.nav === 'courses') ||
+                       (target === 'quiz' && a.dataset.nav === 'courses');
+      a.classList.toggle('active', isActive);
+    });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-backdrop').classList.remove('open');
+  }
+
+  function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    const bd = document.getElementById('sidebar-backdrop');
+    sb.classList.toggle('open');
+    bd.classList.toggle('open');
+  }
+
+  function navigate(hash) {
+    const name = (hash || '').replace('#/', '');
+    showPage(name);
+  }
+
+  // tabs (visual only)
+  document.addEventListener('click', e => {
+    const tab = e.target.closest('.tab-trigger');
+    if (tab) {
+      const siblings = tab.parentElement.querySelectorAll('.tab-trigger');
+      siblings.forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+    }
+    const opt = e.target.closest('.quiz-option');
+    if (opt) {
+      const group = opt.parentElement.querySelectorAll('.quiz-option');
+      group.forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    }
+  });
+
+  window.addEventListener('hashchange', () => navigate(location.hash));
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) lucide.createIcons();
+    if (!location.hash) location.hash = '#/dashboard';
+    else navigate(location.hash);
+  });
+</script>
+<script src="api.js?v=1"></script>
+</body>
+</html>

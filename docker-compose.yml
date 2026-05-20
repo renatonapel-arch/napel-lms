@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lms
+      POSTGRES_PASSWORD: lms
+      POSTGRES_DB: lms
+    ports:
+      - "5433:5432"
+    volumes:
+      - lms_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lms"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: napel-lms-api
+    environment:
+      DATABASE_URL: postgresql://lms:lms@db:5432/lms
+      JWT_SECRET: dev-local-secret-do-not-use-in-prod-32x
+      SEED_ON_STARTUP: "true"
+      ADMIN_PASSWORD: napel2026
+      CORS_ORIGINS: "*"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  fe:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  lms_db:
