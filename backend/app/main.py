@@ -497,6 +497,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
             ).order_by(Unit.order_index).first()
             next_uid = nxt.id if nxt else None
             # completou o curso? checa se TODAS as units estão concluídas (não só quiz final)
+            db.flush()  # garante que o completion_pct=100 do quiz esteja visível na query abaixo
             course_pct = compute_course_progress(db, user.id, unit.course_id)
             if course_pct >= 100:
                 enr = db.query(Enrollment).filter(
