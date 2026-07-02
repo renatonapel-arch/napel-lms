@@ -448,16 +448,19 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
     correct_idx = q.get("correct", -1)
     is_correct = data.selected_idx == correct_idx
 
-    # acumula score na coluna data do Progress (sessão simples — não persiste por questão)
+    # acumula respostas na coluna data do Progress
+    from sqlalchemy.orm.attributes import flag_modified
     prog = db.query(Progress).filter(Progress.user_id == user.id, Progress.unit_id == unit_id).first()
     if not prog:
         prog = Progress(user_id=user.id, unit_id=unit_id, data={})
         db.add(prog)
-    if not isinstance(prog.data, dict):
-        prog.data = {}
-    answers = prog.data.get("answers", {})
+        db.flush()
+    base = dict(prog.data) if isinstance(prog.data, dict) else {}
+    answers = dict(base.get("answers", {}))          # cópia nova (não muta in-place)
     answers[str(q_idx)] = {"selected": data.selected_idx, "correct": is_correct}
-    prog.data = {**prog.data, "answers": answers}
+    base["answers"] = answers
+    prog.data = base                                  # reatribui objeto novo
+    flag_modified(prog, "data")                       # força SQLAlchemy a persistir o JSON
 
     # score atual
     total = len(questions)
