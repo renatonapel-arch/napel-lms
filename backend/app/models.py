@@ -90,6 +90,7 @@ class Progress(Base):
     completion_pct = Column(Integer, default=0)
     completed_at = Column(DateTime, nullable=True)
     score = Column(Integer, nullable=True)  # quiz score
+    data = Column(JSON, default=dict)  # respostas por pergunta do quiz
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     __table_args__ = (UniqueConstraint("user_id", "unit_id", name="uq_progress"),)
 
