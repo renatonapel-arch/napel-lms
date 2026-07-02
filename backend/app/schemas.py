@@ -62,6 +62,7 @@ class CourseOut(BaseModel):
     is_locked: bool = False
     ai_coach: bool = False
     issue_certificate: bool = True
+    certificate_min_score: int = 70
     units_count: int = 0
     enrollments_count: int = 0
     created_at: datetime
@@ -95,6 +96,7 @@ class CourseUpdate(BaseModel):
     is_locked: Optional[bool] = None
     ai_coach: Optional[bool] = None
     issue_certificate: Optional[bool] = None
+    certificate_min_score: Optional[int] = None
 
 
 # === unit ===

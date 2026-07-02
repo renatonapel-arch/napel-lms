@@ -287,6 +287,21 @@ def compute_course_progress(db: Session, user_id: int, course_id: int) -> int:
     return int(round(completed * 100 / len(units)))
 
 
+def compute_course_grade(db: Session, user_id: int, course_id: int):
+    """Nota consolidada = média das notas de quiz do curso. None se não há quiz respondido."""
+    quiz_units = db.query(Unit).filter(Unit.course_id == course_id, Unit.type == "quiz").all()
+    if not quiz_units:
+        return None
+    scores = db.query(Progress.score).filter(
+        Progress.user_id == user_id,
+        Progress.unit_id.in_([u.id for u in quiz_units]),
+        Progress.score.isnot(None),
+    ).all()
+    if not scores:
+        return None
+    return int(round(sum(s[0] for s in scores) / len(scores)))
+
+
 @app.post("/api/enrollments", response_model=schemas.EnrollmentOut, status_code=201)
 def enroll_me(data: schemas.EnrollmentMe, db: Session = Depends(get_db), user: User = Depends(current_user)):
     existing = db.query(Enrollment).filter(
@@ -455,30 +470,38 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
     earned = 0
     next_uid = None
     passed = False
+    attempts_used = db.query(func.count(QuizAttempt.id)).filter(
+        QuizAttempt.user_id == user.id, QuizAttempt.unit_id == unit_id
+    ).scalar() or 0
+    max_attempts = (unit.content or {}).get("max_attempts", 3)
     if answered >= total:
         passed = score_pct >= passing
         prog.score = score_pct
+        # registra a tentativa (aprovado ou não)
+        from datetime import datetime as _dtq
+        db.add(QuizAttempt(
+            user_id=user.id, unit_id=unit_id, attempt_number=attempts_used + 1,
+            score_pct=score_pct, passed=passed, answers=answers, completed_at=_dtq.utcnow(),
+        ))
         if passed:
             prog.completion_pct = 100
-            from datetime import datetime as _dt
             if not prog.completed_at:
-                prog.completed_at = _dt.utcnow()
+                prog.completed_at = _dtq.utcnow()
             earned = 25 + (50 if score_pct == 100 else 0)
             user.points = (user.points or 0) + earned
-            # próxima unit
             nxt = db.query(Unit).filter(
                 Unit.course_id == unit.course_id, Unit.order_index > unit.order_index
             ).order_by(Unit.order_index).first()
             next_uid = nxt.id if nxt else None
-            # se foi a última, marca enrollment como completo + emite certificado
-            if not next_uid:
+            # completou o curso? checa se TODAS as units estão concluídas (não só quiz final)
+            course_pct = compute_course_progress(db, user.id, unit.course_id)
+            if course_pct >= 100:
                 enr = db.query(Enrollment).filter(
                     Enrollment.user_id == user.id, Enrollment.course_id == unit.course_id
                 ).first()
                 if enr and not enr.completed_at:
-                    from datetime import datetime as _dt2
-                    enr.completed_at = _dt2.utcnow()
-                    user.points = (user.points or 0) + 150  # bônus
+                    enr.completed_at = _dtq.utcnow()
+                    user.points = (user.points or 0) + 150
                     grant_badge_if_missing(db, user.id, "Quiz Master")
                     _maybe_issue_certificate(db, user.id, unit.course_id)
     db.commit()
@@ -492,6 +515,43 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
         earned_points=earned,
         next_unit_id=next_uid,
     )
+
+
+@app.post("/api/units/{unit_id}/quiz-reset")
+def quiz_reset(unit_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Refazer quiz: limpa respostas se ainda há tentativas disponíveis."""
+    unit = db.query(Unit).filter(Unit.id == unit_id, Unit.type == "quiz").first()
+    if not unit:
+        raise HTTPException(404, "quiz não encontrado")
+    max_attempts = (unit.content or {}).get("max_attempts", 3)
+    used = db.query(func.count(QuizAttempt.id)).filter(
+        QuizAttempt.user_id == user.id, QuizAttempt.unit_id == unit_id
+    ).scalar() or 0
+    if used >= max_attempts:
+        raise HTTPException(403, f"Sem tentativas restantes ({used}/{max_attempts})")
+    prog = db.query(Progress).filter(Progress.user_id == user.id, Progress.unit_id == unit_id).first()
+    if prog:
+        prog.data = {}
+        prog.score = None
+        prog.completion_pct = 0
+        prog.completed_at = None
+        db.commit()
+    return {"status": "reset", "attempts_used": used, "max_attempts": max_attempts, "remaining": max_attempts - used}
+
+
+@app.get("/api/units/{unit_id}/quiz-status")
+def quiz_status(unit_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    unit = db.query(Unit).filter(Unit.id == unit_id, Unit.type == "quiz").first()
+    if not unit:
+        raise HTTPException(404, "quiz não encontrado")
+    max_attempts = (unit.content or {}).get("max_attempts", 3)
+    used = db.query(func.count(QuizAttempt.id)).filter(
+        QuizAttempt.user_id == user.id, QuizAttempt.unit_id == unit_id
+    ).scalar() or 0
+    best = db.query(func.max(QuizAttempt.score_pct)).filter(
+        QuizAttempt.user_id == user.id, QuizAttempt.unit_id == unit_id
+    ).scalar()
+    return {"attempts_used": used, "max_attempts": max_attempts, "remaining": max(0, max_attempts - used), "best_score": best}
 
 
 # ============ NAVIGATION ============
@@ -714,6 +774,11 @@ def _maybe_issue_certificate(db: Session, user_id: int, course_id: int):
     existing = db.query(Certificate).filter(Certificate.user_id == user_id, Certificate.course_id == course_id).first()
     if existing:
         return existing
+    # gate de nota mínima: se o curso tem quiz, a nota média precisa >= certificate_min_score
+    min_score = getattr(course, "certificate_min_score", 70) or 0
+    grade = compute_course_grade(db, user_id, course_id)
+    if grade is not None and grade < min_score:
+        return None  # concluiu conteúdo mas não atingiu a nota — não emite
     code = f"NAPEL-{datetime.utcnow().year}-{secrets.token_hex(3).upper()}"
     cert = Certificate(user_id=user_id, course_id=course_id, code=code)
     db.add(cert); db.commit(); db.refresh(cert)
@@ -984,6 +1049,7 @@ def course_stats(course_id: int, db: Session = Depends(get_db), _: User = Depend
 def training_matrix(db: Session = Depends(get_db), _: User = Depends(current_user)):
     users = db.query(User).filter(User.status == "active").order_by(User.name).all()
     courses = db.query(Course).filter(Course.status == "active").order_by(Course.created_at).all()
+    # 3 estados: 'completed' (concluído) · 'in_progress' (cursando, com pct) · 'not_started' (não iniciou)
     cells = {}
     for u in users:
         cells[u.id] = {}
@@ -992,17 +1058,16 @@ def training_matrix(db: Session = Depends(get_db), _: User = Depends(current_use
                 Enrollment.user_id == u.id, Enrollment.course_id == c.id
             ).first()
             if not enroll:
-                cells[u.id][c.id] = "empty"
+                cells[u.id][c.id] = {"status": "not_started", "pct": 0}
             elif enroll.completed_at:
-                cells[u.id][c.id] = "completed"
+                cells[u.id][c.id] = {"status": "completed", "pct": 100}
             else:
                 pct = compute_course_progress(db, u.id, c.id)
-                if pct == 0:
-                    cells[u.id][c.id] = "empty"
-                elif pct < 50:
-                    cells[u.id][c.id] = "started"
+                if pct <= 0:
+                    # matriculado mas não começou = ainda conta como "cursando" (0%), pois há matrícula
+                    cells[u.id][c.id] = {"status": "in_progress", "pct": 0}
                 else:
-                    cells[u.id][c.id] = "in_progress"
+                    cells[u.id][c.id] = {"status": "in_progress", "pct": pct}
     return {
         "users": [{"id": u.id, "name": f"{u.name} {u.surname}".strip(), "branch": u.branch} for u in users],
         "courses": [{"id": c.id, "name": c.name, "code": c.code} for c in courses],

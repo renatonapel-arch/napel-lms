@@ -47,6 +47,7 @@ class Course(Base):
     is_locked = Column(Boolean, default=False)
     ai_coach = Column(Boolean, default=False)
     issue_certificate = Column(Boolean, default=True)
+    certificate_min_score = Column(Integer, default=70)  # nota média mínima p/ emitir certificado
     created_at = Column(DateTime, default=datetime.utcnow)
 
     units = relationship("Unit", back_populates="course", cascade="all, delete-orphan", order_by="Unit.order_index")
@@ -58,7 +59,7 @@ class Unit(Base):
     id = Column(Integer, primary_key=True)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
     order_index = Column(Integer, nullable=False)
-    type = Column(String(16), nullable=False)  # video|text|quiz|scorm|pdf|assignment
+    type = Column(String(16), nullable=False)  # video|text|quiz|scorm|pdf|assignment|audio
     title = Column(String(255), nullable=False)
     duration_min = Column(Integer, default=5)
     content = Column(JSON, default=dict)  # video_url, text_md, quiz questions, etc.

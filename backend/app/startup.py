@@ -33,6 +33,7 @@ def migrate_add_columns():
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS ai_coach BOOLEAN DEFAULT FALSE",
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS issue_certificate BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE courses ADD COLUMN IF NOT EXISTS certificate_min_score INTEGER DEFAULT 70",
     ]
     with engine.connect() as c:
         for sql in mig:
