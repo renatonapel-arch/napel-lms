@@ -415,6 +415,17 @@ async function loadQuizIntoPlayer(unitId) {
     if (unit.type !== "quiz") return false;
     const questions = (unit.content || {}).questions || [];
     quizState = { unitId, qIdx: 0, totalQ: questions.length, answered: {}, finished: false, unit };
+    // breadcrumb dinâmico do quiz
+    const course = await api(`/api/courses/${unit.course_id}`).catch(() => null);
+    const bc = document.querySelector("#page-quiz nav");
+    if (bc && course) {
+      bc.innerHTML = `<a href="#/courses" class="hover:text-naval">Cursos</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <a href="#/course-detail?id=${unit.course_id}" class="hover:text-naval">${escapeHtml(course.name)}</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">${escapeHtml(unit.title)}</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
     renderQuizQuestion();
     return true;
   } catch (e) { return false; }

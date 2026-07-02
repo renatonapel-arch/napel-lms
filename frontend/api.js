@@ -1154,11 +1154,21 @@ async function renderUnitPlayer() {
     const qs = new URLSearchParams(location.hash.split("?")[1] || "");
     const unitId = qs.get("unit"); const courseId = qs.get("course");
     if (!unitId || !courseId) return;
-    const [unit, allUnits, myEnrolls] = await Promise.all([
+    const [unit, allUnits, myEnrolls, courseInfo] = await Promise.all([
       api(`/api/units/${unitId}`),
       api(`/api/courses/${courseId}/units`),
       api("/api/users/me/enrollments").catch(() => []),
+      api(`/api/courses/${courseId}`).catch(() => null),
     ]);
+    // breadcrumb dinâmico (era hardcoded "5 Técnicas de Persuasão")
+    const bc = $("#page-unit-player nav");
+    if (bc && courseInfo) {
+      bc.innerHTML = `<a href="#/courses" class="hover:text-naval">Cursos</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <a href="#/course-detail?id=${courseId}" class="hover:text-naval">${escapeHtml(courseInfo.name)}</a>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+        <span class="text-naval font-medium">Unidade ${unit.order_index}</span>`;
+    }
     const enroll = myEnrolls.find(e => e.course_id === parseInt(courseId));
     const progressPct = enroll ? enroll.progress_pct : 0;
     const completedCount = Math.round((progressPct / 100) * allUnits.length);
