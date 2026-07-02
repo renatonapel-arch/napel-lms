@@ -138,9 +138,7 @@ tailwind.config = {
   .matrix-cell.completed { background: #10B981; color: white; box-shadow: 0 1px 3px rgba(16,185,129,0.35); }
   .matrix-cell.completed svg { width: 16px; height: 16px; stroke-width: 3; }
   .matrix-cell.in-progress { background: #FEF3C7; border: 2px solid #F59E0B; }
-  .matrix-cell.in-progress::after { content: ''; width: 10px; height: 10px; border-radius: 9999px; background: #F59E0B; }
-  .matrix-cell.started { background: #FEF3C7; }
-  .matrix-cell.started::after { content: ''; width: 8px; height: 8px; border-radius: 9999px; background: #F59E0B; }
+  .matrix-cell.started { background: #FEF3C7; border: 2px solid #F59E0B; }
   .matrix-cell.empty { background: #F1F5F9; border: 1px solid #E4EEF3; }
   .matrix-cell.failed { background: #FEE2E2; color: #991B1B; }
   .matrix-cell.failed svg { width: 14px; height: 14px; stroke-width: 3; }
@@ -1631,10 +1629,8 @@ tailwind.config = {
         <div class="border-t border-borderd p-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-xs">
           <div class="flex flex-wrap items-center gap-4 text-slate-500">
             <span class="flex items-center gap-1.5"><div class="matrix-cell completed" style="width:18px;height:18px"><i data-lucide="check" class="w-2.5 h-2.5"></i></div> Concluído</span>
-            <span class="flex items-center gap-1.5"><div class="matrix-cell in-progress" style="width:18px;height:18px"></div> Em progresso</span>
-            <span class="flex items-center gap-1.5"><div class="matrix-cell started" style="width:18px;height:18px"></div> Iniciado</span>
+            <span class="flex items-center gap-1.5"><div class="matrix-cell in-progress" style="width:18px;height:18px;font-size:7px;font-weight:800;color:#92400E">%</div> Cursando (mostra % concluído)</span>
             <span class="flex items-center gap-1.5"><div class="matrix-cell empty" style="width:18px;height:18px"></div> Não iniciado</span>
-            <span class="flex items-center gap-1.5"><div class="matrix-cell failed" style="width:18px;height:18px"><i data-lucide="x" class="w-2.5 h-2.5"></i></div> Reprovado</span>
           </div>
           <div class="flex items-center gap-3 text-slate-500">
             <span>7 utilizadores · 6 cursos</span>
@@ -2062,7 +2058,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=10"></script>
-<script src="actions.js?v=4"></script>
+<script src="api.js?v=11"></script>
+<script src="actions.js?v=5"></script>
 </body>
 </html>

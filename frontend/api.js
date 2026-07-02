@@ -394,7 +394,7 @@ async function renderCourseDetail() {
     // units (com botões edit + delete)
     const unitsList = $("#page-course-detail .bg-white.border.border-borderd.rounded-lg.divide-y");
     if (unitsList && course.units) {
-      const iconByType = { video: "video", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
+      const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
       unitsList.innerHTML = course.units.map((u, i) => `
         <div class="unit-row">
           <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab" title="(drag pra reordenar — em breve)"></i>
@@ -782,15 +782,25 @@ async function renderMatrix() {
       <th class="user-header">Utilizadores <i data-lucide="arrow-up" class="w-3 h-3 inline ml-1"></i></th>
       ${data.courses.map(c => `<th class="course-col"><div class="course-label">${escapeHtml(c.name)}</div></th>`).join("")}`;
     const tbody = table.querySelector("tbody");
+    // normaliza célula: aceita formato novo {status,pct} ou legado (string)
+    const cellOf = (uid, cid) => {
+      const raw = data.cells[uid] ? data.cells[uid][cid] : null;
+      if (raw && typeof raw === "object") return raw;
+      // legado
+      if (raw === "completed") return { status: "completed", pct: 100 };
+      if (raw === "in_progress" || raw === "started") return { status: "in_progress", pct: 50 };
+      return { status: "not_started", pct: 0 };
+    };
     tbody.innerHTML = data.users.map(u => `
       <tr>
         <td class="user-cell" ${u.id === state.user.id ? 'style="background:#EBF7FA"' : ""}>${escapeHtml(u.name)} ${u.id === state.user.id ? '<span class="badge badge-success text-[9px]">VOCÊ</span>' : ""}</td>
         ${data.courses.map(c => {
-          const st = data.cells[u.id][c.id] || "empty";
-          if (st === "completed") return `<td><div class="matrix-cell completed" title="Concluído"><i data-lucide="check" class="w-4 h-4"></i></div></td>`;
-          if (st === "in_progress") return `<td><div class="matrix-cell in-progress" title="Em progresso"></div></td>`;
-          if (st === "started") return `<td><div class="matrix-cell started" title="Iniciado"></div></td>`;
-          return `<td><div class="matrix-cell empty"></div></td>`;
+          const cell = cellOf(u.id, c.id);
+          if (cell.status === "completed")
+            return `<td><div class="matrix-cell completed" title="Concluído (100%)"><i data-lucide="check" class="w-4 h-4"></i></div></td>`;
+          if (cell.status === "in_progress")
+            return `<td><div class="matrix-cell in-progress" title="Cursando · ${cell.pct}% concluído" style="font-size:10px;font-weight:800;color:#92400E">${cell.pct}%</div></td>`;
+          return `<td><div class="matrix-cell empty" title="Não iniciado"></div></td>`;
         }).join("")}
       </tr>`).join("");
     // contagem footer
@@ -805,9 +815,9 @@ async function renderMatrix() {
       userScores[u.id] = 0;
       for (const c of data.courses) {
         if (!(c.id in courseEng)) courseEng[c.id] = { started: 0, name: c.name };
-        const s = data.cells[u.id][c.id] || "empty";
-        if (s === "completed") { completedN++; userScores[u.id]++; courseEng[c.id].started++; }
-        else if (s === "in_progress" || s === "started") courseEng[c.id].started++;
+        const cell = cellOf(u.id, c.id);
+        if (cell.status === "completed") { completedN++; userScores[u.id]++; courseEng[c.id].started++; }
+        else if (cell.status === "in_progress") courseEng[c.id].started++;
       }
     }
     const overallPct = totalCells ? Math.round(completedN * 100 / totalCells) : 0;
@@ -1173,6 +1183,12 @@ async function renderUnitPlayer() {
           // MP4 direto
           videoBlock.outerHTML = `<div class="mb-4 shadow-lg rounded-lg overflow-hidden aspect-video bg-black"><video class="w-full h-full" controls preload="metadata" src="${escapeHtml(url)}"></video></div>`;
         }
+      } else if (unit.type === "audio" && c.audio_url) {
+        videoBlock.outerHTML = `<div class="mb-4 bg-white border border-borderd rounded-lg p-8 flex flex-col items-center gap-4">
+          <div class="w-20 h-20 rounded-full bg-gelo text-naval flex items-center justify-center"><i data-lucide="headphones" class="w-10 h-10"></i></div>
+          <div class="text-sm font-semibold text-naval">${escapeHtml(unit.title)}</div>
+          <audio class="w-full max-w-lg" controls preload="metadata" src="${escapeHtml(c.audio_url)}">Seu navegador não suporta áudio.</audio>
+        </div>`;
       } else if (unit.type === "text") {
         const md = c.text_md || "Sem conteúdo.";
         const html = window.marked ? marked.parse(md) : `<pre>${escapeHtml(md)}</pre>`;
@@ -1188,6 +1204,7 @@ async function renderUnitPlayer() {
     if (descCard) {
       let about = "";
       if (unit.type === "video") about = c.video_url ? `Vídeo · ${unit.duration_min} min · ${(c.video_url.match(/youtube|youtu\.be/) ? "YouTube" : "MP4")}` : "Vídeo sem URL configurada.";
+      else if (unit.type === "audio") about = c.audio_url ? `Áudio · ${unit.duration_min} min` : "Áudio sem URL configurada.";
       else if (unit.type === "text") about = `Leitura · ${unit.duration_min} min`;
       else if (unit.type === "quiz") about = `Quiz · ${(c.questions || []).length} pergunta(s) · aprovação ≥${c.passing_score || 70}% · ${c.max_attempts || 3} tentativas`;
       else if (unit.type === "pdf") about = `PDF · ${unit.duration_min} min`;
@@ -1212,7 +1229,7 @@ async function renderUnitPlayer() {
     // painel direito: lista de units real
     const listWidget = $$("#page-unit-player aside .widget")[1];
     if (listWidget) {
-      const iconByType = { video: "video", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
+      const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
       const list = listWidget.querySelector(".px-2.py-2") || listWidget.querySelector(".widget-body") || listWidget;
       list.innerHTML = allUnits.map(u => {
         const isCurrent = u.id === parseInt(unitId);

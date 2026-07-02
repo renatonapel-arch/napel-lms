@@ -201,11 +201,12 @@ async function openEditUnit(unitId) {
   const body = `
     ${fld("eu-title", "Título *", { value: u.title })}
     ${fld("eu-type", "Tipo", { value: u.type, choices: [
-      {value:"video",label:"Vídeo"},{value:"text",label:"Texto"},{value:"quiz",label:"Quiz"},{value:"pdf",label:"PDF"},{value:"scorm",label:"SCORM"}
+      {value:"video",label:"Vídeo"},{value:"audio",label:"Áudio"},{value:"text",label:"Texto / Apostila"},{value:"quiz",label:"Quiz / Prova"},{value:"pdf",label:"PDF"},{value:"scorm",label:"SCORM"}
     ]})}
     ${fld("eu-duration", "Duração (min)", { type: "number", value: String(u.duration_min || 5) })}
     <div id="eu-content-area">
       <div id="eu-fld-video" class="${u.type === "video" ? "" : "hidden"}">${fld("eu-video-url", "URL do vídeo (YouTube ou MP4)", { value: c.video_url || "", required: false, placeholder: "https://www.youtube.com/watch?v=…" })}</div>
+      <div id="eu-fld-audio" class="${u.type === "audio" ? "" : "hidden"}">${fld("eu-audio-url", "URL do áudio (MP3/OGG/WAV)", { value: c.audio_url || "", required: false, placeholder: "https://…/aula.mp3", hint: "Player de áudio HTML5 nativo" })}</div>
       <div id="eu-fld-pdf" class="${u.type === "pdf" ? "" : "hidden"}">${fld("eu-pdf-url", "URL do PDF", { value: c.pdf_url || "", required: false, placeholder: "https://…/arquivo.pdf" })}</div>
       <div id="eu-fld-text" class="${u.type === "text" ? "" : "hidden"}">${fld("eu-text-md", "Conteúdo (markdown)", { value: c.text_md || "", required: false, rows: 8, hint: "Suporta **negrito**, *itálico*, # títulos, listas, links" })}</div>
       <div id="eu-fld-quiz" class="${typeIsQuiz ? "" : "hidden"}">
@@ -228,6 +229,7 @@ async function openEditUnit(unitId) {
       const type = val("eu-type");
       let content = {};
       if (type === "video") content = { video_url: val("eu-video-url") };
+      else if (type === "audio") content = { audio_url: val("eu-audio-url") };
       else if (type === "pdf") content = { pdf_url: val("eu-pdf-url") };
       else if (type === "text") content = { text_md: val("eu-text-md") };
       else if (type === "quiz") {
@@ -254,7 +256,7 @@ async function openEditUnit(unitId) {
 
   // toggle conteúdo por tipo
   document.getElementById("eu-type").onchange = (e) => {
-    ["video", "pdf", "text", "quiz"].forEach(t => {
+    ["video", "audio", "pdf", "text", "quiz"].forEach(t => {
       const el = document.getElementById(`eu-fld-${t}`);
       if (el) el.classList.toggle("hidden", e.target.value !== t);
     });
@@ -315,31 +317,29 @@ async function openCreateUnit(courseId) {
   showModal({
     title: "Adicionar unidade",
     bodyHtml:
-      fld("un-title", "Título da unidade *", { placeholder: "Ex: Como qualificar um lead" }) +
-      fld("un-type", "Tipo", { choices: [
-        {value:"video",label:"Vídeo"},
-        {value:"text",label:"Texto"},
-        {value:"quiz",label:"Quiz"},
+      fld("un-title", "Título da unidade *", { placeholder: "Ex: Introdução em vídeo" }) +
+      fld("un-type", "Tipo de conteúdo", { choices: [
+        {value:"video",label:"Vídeo (YouTube ou MP4)"},
+        {value:"audio",label:"Áudio (MP3/OGG)"},
+        {value:"text",label:"Texto / Apostila"},
         {value:"pdf",label:"PDF"},
+        {value:"quiz",label:"Quiz / Prova de proficiência"},
         {value:"scorm",label:"SCORM"},
       ]}) +
-      fld("un-duration", "Duração (min)", { type: "number", value: "10" }) +
-      fld("un-content", "Conteúdo / URL", { rows: 3, required: false, hint: "Pra vídeo/pdf: URL. Pra texto: markdown. Pra quiz: deixe vazio (use admin avançado)." }),
-    okText: "Adicionar",
+      fld("un-duration", "Duração estimada (min)", { type: "number", value: "10" }) +
+      `<div style="font-size:12px;color:#64748B;padding:8px 10px;background:#EBF7FA;border-radius:6px">Após criar, o editor abre pra você colar a URL / escrever o texto / montar as perguntas.</div>`,
+    okText: "Criar e editar conteúdo",
     onOk: async () => {
       const type = val("un-type");
-      const contentRaw = val("un-content");
+      // conteúdo inicial vazio por tipo
       let content = {};
-      if (type === "video") content = { video_url: contentRaw || "https://www.w3schools.com/html/mov_bbb.mp4" };
-      else if (type === "pdf") content = { pdf_url: contentRaw || "https://example.com/file.pdf" };
-      else if (type === "text") content = { text_md: contentRaw || "Conteúdo da unidade." };
-      else if (type === "quiz") content = { passing_score: 70, max_attempts: 3, questions: [
-        { q: "Editar essa pergunta no JSON do unit. Esta é a opção correta?", options: ["Não", "Sim", "Talvez", "Depois"], correct: 1 }
-      ]};
+      if (type === "quiz") content = { passing_score: 70, max_attempts: 3, questions: [] };
       const body = { title: val("un-title"), type, duration_min: valNum("un-duration") || 5, content };
-      await api(`/api/courses/${courseId}/units`, { method: "POST", body: JSON.stringify(body) });
-      toast("Unidade adicionada ✓");
+      const created = await api(`/api/courses/${courseId}/units`, { method: "POST", body: JSON.stringify(body) });
+      toast("Unidade criada — configure o conteúdo ✓");
       if (typeof renderCourseDetail === "function") await renderCourseDetail();
+      // abre o editor completo da unidade recém-criada
+      setTimeout(() => openEditUnit(created.id), 150);
     },
   });
 }
@@ -497,26 +497,41 @@ async function submitQuizAnswer() {
   } catch (e) { alert("Erro: " + e.message); }
 }
 
-function showQuizResult(res) {
+async function showQuizResult(res) {
   const card = document.querySelector("#page-quiz .bg-white.border.border-borderd.rounded-lg.p-6, #page-quiz .bg-white.border.border-borderd.rounded-lg.p-6.md\\:p-8");
   if (!card) return;
   const correctN = Object.values(quizState.answered).filter(a => a.correct).length;
   const total = quizState.totalQ;
+  const minScore = quizState.unit.content.passing_score || 70;
+  // status de tentativas
+  let st = { remaining: 0, max_attempts: 3, attempts_used: 1 };
+  try { st = await api(`/api/units/${quizState.unitId}/quiz-status`); } catch (e) {}
+  const canRetry = !res.passed && st.remaining > 0;
   card.outerHTML = `
     <div class="bg-white border border-borderd rounded-lg overflow-hidden mb-4">
       <div class="${res.passed ? "bg-success-bg" : "bg-danger-bg"} p-6 text-center border-b ${res.passed ? "border-success-bd" : "border-danger-bd"}">
         <div class="w-16 h-16 ${res.passed ? "bg-success-bd" : "bg-danger-bd"} text-white rounded-full mx-auto flex items-center justify-center mb-3">
-          <i data-lucide="${res.passed ? "check" : "x"}" class="w-8 h-8"></i>
+          <i data-lucide="${res.passed ? "award" : "x"}" class="w-8 h-8"></i>
         </div>
         <h3 class="text-2xl font-bold ${res.passed ? "text-success-fg" : "text-danger-fg"} mb-1">${correctN} / ${total} — ${res.passed ? "Aprovado!" : "Reprovado"}</h3>
-        <p class="text-sm ${res.passed ? "text-success-fg" : "text-danger-fg"}">Pontuação: ${res.score_pct}% · mínimo ${quizState.unit.content.passing_score || 70}%${res.earned_points ? ` · <strong>+${res.earned_points} pts ganhos!</strong>` : ""}</p>
+        <p class="text-sm ${res.passed ? "text-success-fg" : "text-danger-fg"}">Pontuação: <strong>${res.score_pct}%</strong> · nota mínima ${minScore}%${res.earned_points ? ` · <strong>+${res.earned_points} pts</strong>` : ""}</p>
+        <p class="text-xs mt-1 ${res.passed ? "text-success-fg" : "text-danger-fg"}">Tentativa ${st.attempts_used} de ${st.max_attempts}${!res.passed ? (st.remaining > 0 ? ` · ${st.remaining} restante(s)` : " · sem tentativas restantes") : ""}</p>
       </div>
       <div class="p-6 flex justify-center gap-3 flex-wrap">
-        ${res.next_unit_id ? `<a href="#/unit-player?course=${quizState.unit.course_id}&unit=${res.next_unit_id}" class="px-4 py-3 bg-naval text-white rounded-md text-sm font-semibold">Próxima unidade →</a>` : ""}
+        ${res.passed && res.next_unit_id ? `<a href="#/unit-player?course=${quizState.unit.course_id}&unit=${res.next_unit_id}" class="px-4 py-3 bg-naval text-white rounded-md text-sm font-semibold">Próxima unidade →</a>` : ""}
+        ${canRetry ? `<button data-action="quiz-retry" data-id="${quizState.unitId}" class="px-4 py-3 bg-warn-bd text-white rounded-md text-sm font-semibold">↺ Refazer prova</button>` : ""}
         <a href="#/course-detail?id=${quizState.unit.course_id}" class="px-4 py-3 bg-white border border-borderd rounded-md text-sm font-semibold text-naval">Voltar ao curso</a>
       </div>
     </div>`;
   rerunLucide();
+}
+
+async function retryQuiz(unitId) {
+  try {
+    await api(`/api/units/${unitId}/quiz-reset`, { method: "POST" });
+    toast("Prova reiniciada — boa sorte!", "info");
+    await loadQuizIntoPlayer(unitId);
+  } catch (e) { alert(e.message); }
 }
 
 /* ============ UNIT PLAYER NAV ============ */
@@ -617,11 +632,12 @@ async function openCourseSettings(courseId) {
           <input type="checkbox" id="cs-locked" ${c.is_locked ? "checked" : ""}> <span>Bloqueado (precisa admin aprovar inscrição)</span>
         </label>
       </div>` +
-      `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
+      `<div style="margin-bottom:8px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
           <input type="checkbox" id="cs-cert" ${c.issue_certificate ? "checked" : ""}> <span>Emite certificado ao concluir</span>
         </label>
       </div>` +
+      fld("cs-certmin", "Nota mínima p/ emitir certificado (%)", { type: "number", value: String(c.certificate_min_score != null ? c.certificate_min_score : 70), required: false, hint: "Certificado só é emitido se a nota média dos quizzes do curso atingir esse valor. Ex: 70" }) +
       `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
           <input type="checkbox" id="cs-ai" ${c.ai_coach ? "checked" : ""}> <span>AI Coach habilitado (futuro)</span>
@@ -638,6 +654,7 @@ async function openCourseSettings(courseId) {
         is_hidden: document.getElementById("cs-hidden").checked,
         is_locked: document.getElementById("cs-locked").checked,
         issue_certificate: document.getElementById("cs-cert").checked,
+        certificate_min_score: parseInt(val("cs-certmin")) || 70,
         ai_coach: document.getElementById("cs-ai").checked,
       })});
       toast("Configurações salvas ✓");
@@ -852,6 +869,7 @@ document.addEventListener("click", async (e) => {
     case "quiz-submit": return submitQuizAnswer();
     case "quiz-next": { quizState.qIdx = Math.min(quizState.qIdx + 1, quizState.totalQ - 1); return renderQuizQuestion(); }
     case "quiz-prev": { quizState.qIdx = Math.max(quizState.qIdx - 1, 0); return renderQuizQuestion(); }
+    case "quiz-retry": return retryQuiz(id);
     case "next-unit": return navUnit("next");
     case "prev-unit": return navUnit("prev");
     case "export-courses-csv": return exportCoursesCsv();
