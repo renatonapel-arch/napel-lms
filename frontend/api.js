@@ -780,7 +780,7 @@ async function renderMatrix() {
     const thead = table.querySelector("thead tr");
     thead.innerHTML = `
       <th class="user-header">Utilizadores <i data-lucide="arrow-up" class="w-3 h-3 inline ml-1"></i></th>
-      ${data.courses.map(c => `<th class="course-col"><span class="course-label" title="${escapeHtml(c.name)}${c.code ? ' · ' + escapeHtml(c.code) : ''}">${escapeHtml(c.name)}${c.code ? `<span class="course-code">${escapeHtml(c.code)}</span>` : ""}</span></th>`).join("")}`;
+      ${data.courses.map(c => `<th class="course-col" title="${escapeHtml(c.name)}${c.code ? ' · ' + escapeHtml(c.code) : ''}"><span class="course-label">${escapeHtml(c.name)}</span>${c.code ? `<span class="course-code">${escapeHtml(c.code)}</span>` : ""}</th>`).join("")}`;
     const tbody = table.querySelector("tbody");
     // normaliza célula: aceita formato novo {status,pct} ou legado (string)
     const cellOf = (uid, cid) => {
