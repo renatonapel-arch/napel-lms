@@ -343,5 +343,60 @@ class QuizAttemptOut(BaseModel):
         from_attributes = True
 
 
+# === learning paths ===
+class LearningPathOut(BaseModel):
+    id: int
+    name: str
+    code: Optional[str] = None
+    description: str = ""
+    category: str = "Geral"
+    status: str = "active"
+    sequential: bool = True
+    icon: str = "route"
+    courses_count: int = 0
+    my_pct: int = 0
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LearningPathCreate(BaseModel):
+    name: str
+    code: Optional[str] = None
+    description: str = ""
+    category: str = "Geral"
+    status: str = "active"
+    sequential: bool = True
+    icon: str = "route"
+
+
+class LearningPathUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    sequential: Optional[bool] = None
+    icon: Optional[str] = None
+
+
+class LearningPathCoursesIn(BaseModel):
+    course_ids: List[int]
+
+
+class PathCertificateOut(BaseModel):
+    id: int
+    user_id: int
+    path_id: int
+    code: str
+    issued_at: datetime
+    path_name: Optional[str] = None
+    user_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 # resolve forward
 TokenOut.model_rebuild()

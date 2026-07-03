@@ -1515,10 +1515,10 @@ tailwind.config = {
         <a class="subnav-item">Visão geral</a>
         <a class="subnav-item">Utilizadores</a>
         <a class="subnav-item">Cursos</a>
-        <a class="subnav-item">Caminhos de aprendizagem</a>
+        <a class="subnav-item" href="#/paths">Caminhos de aprendizagem</a>
         <a class="subnav-item">Ramificações</a>
         <a class="subnav-item">Grupos</a>
-        <a class="subnav-item">Ativ. de aprendizagem</a>
+        <a class="subnav-item" href="#/activity">Ativ. de aprendizagem</a>
         <a class="subnav-item active">Matriz de formação</a>
         <a class="subnav-item">Cronologia</a>
         <a class="subnav-item">Personalizado</a>
@@ -1687,6 +1687,68 @@ tailwind.config = {
         </button>
       </div>
       <div id="groups-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ================== CAMINHOS DE APRENDIZAGEM (L3) ================== -->
+    <section id="page-paths" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval">Caminhos de aprendizagem</h1>
+          <p class="text-sm text-slate-500 mt-1" id="paths-subtitle">—</p>
+        </div>
+        <button data-action="create-path" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i> Criar trilha
+        </button>
+      </div>
+      <div id="paths-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </section>
+
+    <!-- ================== DETALHE DA TRILHA (L3) ================== -->
+    <section id="page-path-detail" class="page">
+      <nav class="text-sm text-slate-500 mb-3 flex items-center gap-1.5 flex-wrap">
+        <a href="#/paths" class="hover:text-naval">Caminhos de aprendizagem</a> <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i> <span class="text-naval font-medium">—</span>
+      </nav>
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-2">
+        <div>
+          <h1 class="text-2xl font-bold text-naval flex items-center gap-2"><i data-lucide="route" class="w-6 h-6 text-ceu"></i> —</h1>
+          <p class="text-sm text-slate-500 mt-1 max-w-2xl">—</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+          <button data-action="path-set-courses" class="px-4 py-2.5 bg-white border border-borderd text-naval rounded-md text-sm font-semibold hover:bg-gelo flex items-center gap-2"><i data-lucide="list-plus" class="w-4 h-4"></i> Cursos da trilha</button>
+          <button data-action="edit-path" class="px-4 py-2.5 bg-white border border-borderd text-naval rounded-md text-sm font-semibold hover:bg-gelo icon-only" aria-label="Editar trilha"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button data-action="path-enroll-bulk" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Matricular utilizadores</button>
+        </div>
+      </div>
+      <div class="mb-5">
+        <div class="progress-bar" style="height:8px"><div class="progress-bar-fill" id="path-progress-fill" style="width:0%"></div></div>
+        <div class="text-xs text-slate-500 mt-1" id="path-progress-label">0% concluído</div>
+      </div>
+      <div id="path-cert-zone"></div>
+      <div id="path-courses-list" class="bg-white border border-borderd rounded-lg divide-y divide-slate-100"></div>
+    </section>
+
+    <!-- ================== ATIVIDADES DE APRENDIZAGEM (L2) ================== -->
+    <section id="page-activity" class="page">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-naval">Atividades de aprendizagem</h1>
+          <p class="text-sm text-slate-500 mt-1" id="activity-subtitle">—</p>
+        </div>
+        <select id="activity-kind-filter" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm">
+          <option value="">Todas as atividades</option>
+          <option value="login">Logins</option>
+          <option value="unit_completed">Unidades concluídas</option>
+          <option value="quiz_passed">Quizzes aprovados</option>
+          <option value="course_completed">Cursos concluídos</option>
+          <option value="badge_earned">Badges conquistadas</option>
+          <option value="certificate_issued">Certificados emitidos</option>
+          <option value="path_certificate_issued">Trilhas concluídas</option>
+        </select>
+      </div>
+      <div id="activity-list" class="bg-white border border-borderd rounded-lg divide-y divide-slate-100"></div>
+      <div class="flex justify-center mt-4">
+        <button data-action="activity-load-more" id="activity-load-more" class="px-4 py-2 border border-borderd rounded-md text-sm text-naval hover:bg-gelo hidden">Carregar mais</button>
+      </div>
     </section>
 
     <!-- ================== 12. CONFIGURAÇÕES (ACCOUNT) ================== -->
@@ -2004,7 +2066,7 @@ tailwind.config = {
 </div>
 
 <script>
-  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account'];
+  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account', 'paths', 'path-detail', 'activity'];
 
   function showPage(name) {
     const target = pages.includes(name) ? name : 'dashboard';
@@ -2059,7 +2121,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=19"></script>
+<script src="api.js?v=20"></script>
 <script src="actions.js?v=6"></script>
 </body>
 </html>

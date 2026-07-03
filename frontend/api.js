@@ -396,8 +396,8 @@ async function renderCourseDetail() {
     if (unitsList && course.units) {
       const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
       unitsList.innerHTML = course.units.map((u, i) => `
-        <div class="unit-row">
-          <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab" title="(drag pra reordenar — em breve)"></i>
+        <div class="unit-row" draggable="true" data-unit-id="${u.id}">
+          <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab" title="Arrastar pra reordenar"></i>
           <div class="unit-icon"><i data-lucide="${iconByType[u.type] || "circle"}" class="w-4 h-4"></i></div>
           <div class="flex-1 cursor-pointer" onclick="location.hash='#/unit-player?course=${course.id}&unit=${u.id}'">
             <div class="text-sm font-semibold text-naval">${u.order_index} · ${escapeHtml(u.title)}</div>
@@ -408,6 +408,7 @@ async function renderCourseDetail() {
           <button data-action="edit-unit" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Editar unidade"><i data-lucide="pencil" class="w-4 h-4 text-naval"></i></button>
           <button data-action="delete-unit" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Deletar"><i data-lucide="trash-2" class="w-4 h-4 text-danger-bd"></i></button>
         </div>`).join("");
+      bindUnitDragReorder(unitsList, course.id);
     }
 
     // tabs interativas: trocar entre Conteúdo / Alunos / Configurações
@@ -513,6 +514,32 @@ async function switchCourseDetailTab(courseId, idx) {
     rerunLucide();
     return;
   }
+}
+
+/* ============ DRAG REORDER UNIDADES (L1) ============ */
+function bindUnitDragReorder(container, courseId) {
+  let draggedEl = null;
+  container.querySelectorAll(".unit-row").forEach(row => {
+    row.ondragstart = (e) => { draggedEl = row; e.dataTransfer.effectAllowed = "move"; row.style.opacity = "0.4"; };
+    row.ondragend = () => { row.style.opacity = ""; };
+    row.ondragover = (e) => {
+      e.preventDefault();
+      if (!draggedEl || draggedEl === row) return;
+      const rect = row.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      row.parentNode.insertBefore(draggedEl, after ? row.nextSibling : row);
+    };
+    row.ondrop = async (e) => {
+      e.preventDefault();
+      const ids = Array.from(container.querySelectorAll(".unit-row")).map(r => parseInt(r.dataset.unitId));
+      const items = ids.map((id, i) => ({ id, order_index: i + 1 }));
+      try {
+        await api(`/api/courses/${courseId}/units/reorder`, { method: "PATCH", body: JSON.stringify(items) });
+        toast("Ordem salva ✓");
+        await renderCourseDetail();
+      } catch (err) { alert("Erro ao reordenar: " + err.message); }
+    };
+  });
 }
 
 /* ============ GROUPS PAGE ============ */
@@ -1270,6 +1297,151 @@ async function renderUnitPlayer() {
   } catch (e) { console.error("[unit-player]", e); }
 }
 
+/* ============ CAMINHOS DE APRENDIZAGEM (L3) ============ */
+async function renderPaths() {
+  try {
+    const paths = await api("/api/paths");
+    const sub = $("#paths-subtitle");
+    if (sub) sub.textContent = `${paths.length} ${paths.length === 1 ? "trilha" : "trilhas"}`;
+    const grid = $("#paths-grid");
+    if (!grid) return;
+    if (paths.length === 0) {
+      grid.innerHTML = `<div class="col-span-3 text-center py-16 bg-white border border-borderd rounded-lg">
+        <i data-lucide="route" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i>
+        <h3 class="text-lg font-semibold text-naval mb-1">Sem trilhas ainda</h3>
+        <p class="text-sm text-slate-500 mb-5">Crie uma trilha pra agrupar cursos numa sequência de formação.</p>
+        <button data-action="create-path" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold">+ Criar primeira trilha</button>
+      </div>`;
+    } else {
+      grid.innerHTML = paths.map(p => `
+        <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer" onclick="location.hash='#/path-detail?id=${p.id}'">
+          <div class="p-5">
+            <div class="flex items-start justify-between mb-2">
+              <div class="w-11 h-11 rounded-lg bg-naval/10 flex items-center justify-center"><i data-lucide="${escapeHtml(p.icon || "route")}" class="w-5 h-5 text-naval"></i></div>
+              <span class="badge ${p.status === "active" ? "badge-success" : "badge-neutral"}">${p.status === "active" ? "Ativa" : "Rascunho"}</span>
+            </div>
+            <h3 class="text-base font-semibold text-naval mb-1 line-clamp-1">${escapeHtml(p.name)}</h3>
+            <p class="text-xs text-slate-500 line-clamp-2 mb-3 min-h-[32px]">${escapeHtml(p.description || "—")}</p>
+            <div class="flex items-center gap-3 text-xs text-slate-600 mb-3">
+              <span class="flex items-center gap-1"><i data-lucide="book-open" class="w-3.5 h-3.5"></i> ${p.courses_count} ${p.courses_count === 1 ? "curso" : "cursos"}</span>
+              ${p.sequential ? '<span class="flex items-center gap-1"><i data-lucide="lock" class="w-3.5 h-3.5"></i> sequencial</span>' : '<span class="flex items-center gap-1"><i data-lucide="shuffle" class="w-3.5 h-3.5"></i> livre</span>'}
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width:${p.my_pct}%"></div></div>
+            <div class="text-xs text-slate-500 mt-1">${p.my_pct}% concluído</div>
+          </div>
+        </article>`).join("");
+    }
+    rerunLucide();
+  } catch (e) { console.error("[paths]", e); }
+}
+
+async function renderPathDetail() {
+  try {
+    const pathId = new URLSearchParams(location.hash.split("?")[1] || "").get("id");
+    if (!pathId) return;
+    const p = await api(`/api/paths/${pathId}`);
+    const bc = $("#page-path-detail nav span.text-naval.font-medium");
+    if (bc) bc.textContent = p.name;
+    const h1 = $("#page-path-detail h1");
+    if (h1) h1.innerHTML = `<i data-lucide="${escapeHtml(p.icon || "route")}" class="w-6 h-6 text-ceu"></i> ${escapeHtml(p.name)}`;
+    const desc = $("#page-path-detail h1 + p");
+    if (desc) desc.textContent = p.description || "";
+    const fill = $("#path-progress-fill"); if (fill) fill.style.width = `${p.my_pct}%`;
+    const label = $("#path-progress-label");
+    if (label) label.textContent = `${p.my_pct}% concluído · ${p.courses_count} ${p.courses_count === 1 ? "curso" : "cursos"}`;
+
+    const certZone = $("#path-cert-zone");
+    if (certZone) {
+      certZone.innerHTML = p.certificate_id
+        ? `<div class="mb-5 p-4 bg-success-bg border border-success-bd rounded-lg flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2 text-success-fg text-sm font-semibold"><i data-lucide="award" class="w-5 h-5"></i> Trilha concluída — certificado emitido!</div>
+            <button data-action="view-path-certificate" data-id="${p.certificate_id}" class="px-3 py-2 bg-white border border-success-bd text-success-fg rounded-md text-xs font-semibold">Ver certificado</button>
+          </div>`
+        : "";
+    }
+
+    const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
+    const statusMeta = {
+      completed: { icon: "check-circle-2", color: "#10B981", label: "Concluído" },
+      in_progress: { icon: "loader", color: "#F59E0B", label: "Cursando" },
+      available: { icon: "circle", color: "#7DA4C6", label: "Disponível" },
+      locked: { icon: "lock", color: "#94A3B8", label: "Bloqueado" },
+    };
+    const list = $("#path-courses-list");
+    if (list) {
+      if (p.courses.length === 0) {
+        list.innerHTML = `<div class="p-10 text-center text-slate-500"><i data-lucide="layers" class="w-12 h-12 mx-auto mb-2 text-slate-300"></i><p class="text-sm mb-3">Nenhum curso nesta trilha ainda.</p><button data-action="path-set-courses" class="px-3 py-2 bg-naval text-white rounded-md text-xs font-semibold">+ Adicionar cursos</button></div>`;
+      } else {
+        list.innerHTML = p.courses.map(c => {
+          const sm = statusMeta[c.status] || statusMeta.locked;
+          const clickable = c.status !== "locked";
+          return `
+          <div class="unit-row" ${clickable ? `style="cursor:pointer" onclick="location.hash='#/course-detail?id=${c.course_id}'"` : `style="opacity:0.55"`}>
+            <div class="unit-icon"><i data-lucide="${iconByType[c.icon] || "book-open"}" class="w-4 h-4"></i></div>
+            <div class="flex-1">
+              <div class="text-sm font-semibold text-naval">${c.order_index} · ${escapeHtml(c.name)}</div>
+              <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
+                <span>${c.units_count} unidades</span>
+                ${c.status === "in_progress" ? `<span style="color:${sm.color}">${c.pct}% concluído</span>` : ""}
+              </div>
+            </div>
+            <span class="flex items-center gap-1.5 text-xs font-semibold" style="color:${sm.color}"><i data-lucide="${sm.icon}" class="w-4 h-4"></i> ${sm.label}</span>
+          </div>`;
+        }).join("");
+      }
+    }
+    rerunLucide();
+  } catch (e) { console.error("[path-detail]", e); }
+}
+
+/* ============ ATIVIDADES DE APRENDIZAGEM (L2) ============ */
+let activityOffset = 0;
+async function renderActivity(reset = true) {
+  try {
+    if (reset) activityOffset = 0;
+    const kind = $("#activity-kind-filter")?.value || "";
+    const r = await api(`/api/reports/activity?limit=30&offset=${activityOffset}${kind ? "&kind=" + kind : ""}`);
+    const sub = $("#activity-subtitle");
+    if (sub) sub.textContent = `${r.total} ${r.total === 1 ? "evento registrado" : "eventos registrados"}`;
+    const iconByKind = {
+      login: { color: "#7DA4C6", lucide: "log-in" },
+      unit_completed: { color: "#113C58", lucide: "check-circle" },
+      quiz_passed: { color: "#8B5CF6", lucide: "help-circle" },
+      course_completed: { color: "#10B981", lucide: "check-circle-2" },
+      badge_earned: { color: "#F59E0B", lucide: "trophy" },
+      certificate_issued: { color: "#EF4444", lucide: "award" },
+      path_certificate_issued: { color: "#EF4444", lucide: "medal" },
+    };
+    const list = $("#activity-list");
+    if (list) {
+      const rows = r.events.map(ev => {
+        const ic = iconByKind[ev.kind] || { color: "#64748B", lucide: "circle" };
+        const isYou = ev.actor_id === state.user.id;
+        return `
+          <div class="py-3 px-4 flex items-start gap-3">
+            <div class="avatar" style="background: linear-gradient(135deg, ${ic.color}, #113C58)">${escapeHtml(ev.actor_initials || "?")}</div>
+            <div class="flex-1 text-sm">
+              <div><span class="font-semibold text-naval">${isYou ? "Você" : escapeHtml(ev.actor_name)}</span> <span class="text-slate-600">${escapeHtml(ev.text)}</span></div>
+              <div class="text-xs text-slate-400 mt-0.5">${relativeTime(ev.ts)}</div>
+            </div>
+            <i data-lucide="${ic.lucide}" class="w-4 h-4 mt-1" style="color:${ic.color}"></i>
+          </div>`;
+      }).join("");
+      if (reset) {
+        list.innerHTML = rows || `<div class="p-10 text-center text-slate-500"><i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Sem atividade ainda.</p></div>`;
+      } else {
+        list.insertAdjacentHTML("beforeend", rows);
+      }
+    }
+    activityOffset += r.events.length;
+    const loadMore = $("#activity-load-more");
+    if (loadMore) loadMore.classList.toggle("hidden", activityOffset >= r.total);
+    const filterEl = $("#activity-kind-filter");
+    if (filterEl && !filterEl.dataset.bound) { filterEl.dataset.bound = "1"; filterEl.onchange = () => renderActivity(true); }
+    rerunLucide();
+  } catch (e) { console.error("[activity]", e); }
+}
+
 /* ============ ROUTER ============ */
 const routes = {
   "dashboard": renderDashboard,
@@ -1283,6 +1455,9 @@ const routes = {
   "users": renderUsers,
   "groups": renderGroups,
   "account": renderAccount,
+  "paths": renderPaths,
+  "path-detail": renderPathDetail,
+  "activity": () => renderActivity(true),
 };
 async function handleRoute() {
   // Guard: se não há user/token, força login antes de tentar render

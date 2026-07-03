@@ -887,6 +887,13 @@ document.addEventListener("click", async (e) => {
     case "export-user-courses-csv": return exportUserCoursesCsv(id || currentUserIdFromHash());
     case "export-users-csv": return exportUsersCsv();
     case "delete-user": return deleteUser(id);
+    case "create-path": return openCreatePath();
+    case "edit-path": return openEditPath(id);
+    case "delete-path": return deletePath(id || currentPathIdFromHash());
+    case "path-set-courses": return openSetPathCourses(id || currentPathIdFromHash());
+    case "path-enroll-bulk": return openPathEnrollBulk(id || currentPathIdFromHash());
+    case "view-path-certificate": return window.open(`${API_BASE}/api/path-certificates/${id}/html`, "_blank");
+    case "activity-load-more": return renderActivity(false);
     case "placeholder": return toast("Em breve nesta demo. Por enquanto é só visual.", "info");
   }
 });
@@ -952,6 +959,129 @@ function currentCourseIdFromHash() {
 }
 function currentUserIdFromHash() {
   return parseInt(new URLSearchParams(location.hash.split("?")[1] || "").get("id") || "0") || state.user?.id;
+}
+function currentPathIdFromHash() {
+  return parseInt(new URLSearchParams(location.hash.split("?")[1] || "").get("id") || "0") || null;
+}
+
+/* ============ LEARNING PATHS (L3) ============ */
+async function openCreatePath() {
+  showModal({
+    title: "Criar trilha de aprendizagem",
+    bodyHtml:
+      fld("lp-name", "Nome da trilha *", { placeholder: "Ex: Formação Vendedor Júnior" }) +
+      fld("lp-code", "Código (opcional)", { required: false, placeholder: "Ex: TRI-VND-01" }) +
+      fld("lp-description", "Descrição", { rows: 2, required: false, placeholder: "Objetivo desta trilha" }) +
+      fld("lp-sequential", "Bloquear próximo curso até concluir o anterior?", { choices: [{value:"true",label:"Sim, sequencial"},{value:"false",label:"Não, livre"}] }),
+    okText: "Criar trilha",
+    onOk: async () => {
+      const name = val("lp-name"); if (!name) throw new Error("nome obrigatório");
+      const p = await api("/api/paths", { method: "POST", body: JSON.stringify({
+        name, code: val("lp-code") || null, description: val("lp-description"),
+        sequential: val("lp-sequential") === "true",
+      })});
+      toast("Trilha criada ✓ · agora adicione os cursos");
+      location.hash = `#/path-detail?id=${p.id}`;
+    },
+  });
+}
+
+async function openEditPath(pathId) {
+  pathId = pathId || currentPathIdFromHash();
+  const p = await api(`/api/paths/${pathId}`);
+  showModal({
+    title: `Editar "${p.name}"`,
+    bodyHtml:
+      fld("lp-name", "Nome", { value: p.name }) +
+      fld("lp-code", "Código", { value: p.code || "", required: false }) +
+      fld("lp-description", "Descrição", { value: p.description || "", required: false, rows: 2 }) +
+      fld("lp-sequential", "Bloquear próximo curso até concluir o anterior?", { choices: [{value:"true",label:"Sim, sequencial"},{value:"false",label:"Não, livre"}], value: String(p.sequential) }) +
+      fld("lp-status", "Status", { choices: [{value:"active",label:"Ativa"},{value:"draft",label:"Rascunho"}], value: p.status }) +
+      `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #E4EEF3"><button type="button" onclick="hideModal(); deletePath(${pathId})" style="background:#FEE2E2;color:#991B1B;border:1px solid #EF4444;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🗑 Deletar trilha</button></div>`,
+    okText: "Salvar",
+    onOk: async () => {
+      await api(`/api/paths/${pathId}`, { method: "PATCH", body: JSON.stringify({
+        name: val("lp-name"), code: val("lp-code") || null, description: val("lp-description"),
+        sequential: val("lp-sequential") === "true", status: val("lp-status"),
+      })});
+      toast("Trilha salva ✓");
+      if (typeof renderPathDetail === "function") await renderPathDetail();
+    },
+  });
+}
+
+async function deletePath(pathId) {
+  if (!confirm("Deletar esta trilha? Os cursos e matrículas continuam existindo — só a trilha some.")) return;
+  try {
+    await api(`/api/paths/${pathId}`, { method: "DELETE" });
+    toast("Trilha deletada");
+    location.hash = "#/paths";
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+async function openSetPathCourses(pathId) {
+  const [p, allCourses] = await Promise.all([
+    api(`/api/paths/${pathId}`),
+    api("/api/courses?status=active"),
+  ]);
+  const currentSet = new Set(p.courses.map(c => c.course_id));
+  showModal({
+    title: `Cursos da trilha "${p.name}"`,
+    bodyHtml:
+      `<div style="font-size:13px;color:#64748B;margin-bottom:12px">Marque os cursos que fazem parte da trilha. A ordem segue a ordem atual dos cursos abaixo.</div>` +
+      `<div style="max-height:320px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px;padding:6px">
+        ${allCourses.length === 0 ? '<div style="color:#94A3B8;font-size:12px;padding:6px">Sem cursos ativos.</div>' : allCourses.map(c => `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" class="lp-course" value="${c.id}" ${currentSet.has(c.id) ? "checked" : ""}>
+          <span>${escapeHtml(c.name)} ${c.code ? `<span style="color:#94A3B8">(${escapeHtml(c.code)})</span>` : ""}</span>
+        </label>`).join("")}
+      </div>`,
+    okText: "Salvar cursos",
+    onOk: async () => {
+      const ids = Array.from(document.querySelectorAll(".lp-course:checked")).map(c => parseInt(c.value));
+      await api(`/api/paths/${pathId}/courses`, { method: "PUT", body: JSON.stringify({ course_ids: ids }) });
+      toast(`${ids.length} curso(s) na trilha ✓`);
+      if (typeof renderPathDetail === "function") await renderPathDetail();
+    },
+  });
+}
+
+async function openPathEnrollBulk(pathId) {
+  const [p, allUsers] = await Promise.all([
+    api(`/api/paths/${pathId}`),
+    api("/api/users"),
+  ]);
+  if (p.courses.length === 0) { toast("Adicione cursos à trilha antes de matricular utilizadores.", "info"); return; }
+  showModal({
+    title: `Matricular utilizadores em "${p.name}"`,
+    bodyHtml:
+      `<div style="font-size:13px;color:#64748B;margin-bottom:12px">Matricula automaticamente em todos os ${p.courses.length} cursos da trilha.</div>` +
+      `<div style="margin-bottom:12px"><input id="pe-search" type="search" placeholder="Filtrar…" style="width:100%;padding:8px 12px;border:1px solid #CFDEE7;border-radius:6px;font-size:13px"></div>` +
+      `<div style="max-height:300px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px">
+        <div id="pe-list">
+          ${allUsers.map(u => `
+            <label class="pe-item" data-name="${escapeHtml((u.name + " " + u.surname).toLowerCase())}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #F1F5F9;cursor:pointer">
+              <input type="checkbox" class="pe-row" value="${u.id}">
+              <div class="avatar" style="width:28px;height:28px;font-size:11px">${escapeHtml(u.avatar_initials)}</div>
+              <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#113C58">${escapeHtml(u.name)} ${escapeHtml(u.surname || "")}</div></div>
+            </label>`).join("")}
+        </div>
+      </div>`,
+    okText: "Matricular selecionados",
+    onOk: async () => {
+      const ids = Array.from(document.querySelectorAll(".pe-row:checked")).map(c => parseInt(c.value));
+      if (ids.length === 0) throw new Error("Selecione ao menos 1 utilizador");
+      const r = await api(`/api/paths/${pathId}/enroll-bulk`, { method: "POST", body: JSON.stringify({ user_ids: ids }) });
+      toast(`${r.added} matrícula(s) criada(s) ✓ · ${r.skipped} já existiam`);
+      if (typeof renderPathDetail === "function") await renderPathDetail();
+    },
+  });
+  setTimeout(() => {
+    const s = document.getElementById("pe-search");
+    if (s) s.oninput = (e) => {
+      const v = e.target.value.toLowerCase();
+      document.querySelectorAll(".pe-item").forEach(el => { el.style.display = el.dataset.name.includes(v) ? "flex" : "none"; });
+    };
+  }, 100);
 }
 
 console.log("[actions.js] loaded — CRUD handlers ativos");

@@ -8,7 +8,7 @@ from . import models, schemas
 from .config import settings
 from .db import get_db, engine, Base, SessionLocal
 from .auth import current_user, require_admin, make_token, verify_password, hash_password
-from .models import User, Course, Unit, Enrollment, Progress, Badge, UserBadge, Certificate, Category, GroupUser, GroupCourse, QuizAttempt, Setting
+from .models import User, Course, Unit, Enrollment, Progress, Badge, UserBadge, Certificate, Category, GroupUser, GroupCourse, QuizAttempt, Setting, LearningPath, LearningPathCourse, PathCertificate
 
 # garante tabelas existem (idempotente em prod)
 Base.metadata.create_all(bind=engine)
@@ -266,10 +266,16 @@ def delete_unit(unit_id: int, db: Session = Depends(get_db), _: User = Depends(r
 
 @app.patch("/api/courses/{course_id}/units/reorder")
 def reorder_units(course_id: int, items: List[schemas.UnitReorderItem], db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    units = {u.id: u for u in db.query(Unit).filter(Unit.course_id == course_id).all()}
+    # 2 fases: offset negativo temporário evita colisão com uq_unit_order (course_id, order_index)
+    # ao trocar posições dentro da mesma transação
     for it in items:
-        unit = db.query(Unit).filter(Unit.id == it.id, Unit.course_id == course_id).first()
-        if unit:
-            unit.order_index = it.order_index
+        if it.id in units:
+            units[it.id].order_index = -it.order_index
+    db.flush()
+    for it in items:
+        if it.id in units:
+            units[it.id].order_index = it.order_index
     db.commit()
     return {"status": "ok", "count": len(items)}
 
@@ -508,6 +514,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
                     user.points = (user.points or 0) + 150
                     grant_badge_if_missing(db, user.id, "Quiz Master")
                     _maybe_issue_certificate(db, user.id, unit.course_id)
+                    _maybe_issue_path_certificates_for_course(db, user.id, unit.course_id)
     db.commit()
 
     return schemas.QuizAnswerOut(
@@ -597,6 +604,7 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
         else:
             user.points += 10
     # se todas as units do curso concluídas, marca enrollment.completed_at + bonus + emite certificado
+    db.flush()  # garante que o completion_pct=100 desta unit esteja visível na query abaixo (autoflush=False)
     pct = compute_course_progress(db, user.id, unit.course_id)
     if pct >= 100:
         enroll = db.query(Enrollment).filter(
@@ -607,6 +615,7 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
             user.points += 150  # bônus curso completo
             grant_badge_if_missing(db, user.id, "Quiz Master")
             _maybe_issue_certificate(db, user.id, unit.course_id)
+            _maybe_issue_path_certificates_for_course(db, user.id, unit.course_id)
     db.commit()
     db.refresh(p)
     return p
@@ -791,16 +800,10 @@ def _maybe_issue_certificate(db: Session, user_id: int, course_id: int):
 
 from fastapi.responses import HTMLResponse
 
-@app.get("/api/certificates/{cert_id}/html", response_class=HTMLResponse)
-def render_certificate_html(cert_id: int, db: Session = Depends(get_db)):
-    cert = db.query(Certificate).get(cert_id)
-    if not cert:
-        raise HTTPException(404, "certificate not found")
-    user = db.query(User).get(cert.user_id)
-    course = db.query(Course).get(cert.course_id)
-    html = f"""<!DOCTYPE html>
+def _certificate_html(recipient: str, kind_label: str, title: str, code: str, issued_at) -> str:
+    return f"""<!DOCTYPE html>
 <html lang="pt-BR"><head>
-<meta charset="UTF-8"><title>Certificado · {user.name} {user.surname}</title>
+<meta charset="UTF-8"><title>Certificado · {recipient}</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }}
@@ -831,20 +834,30 @@ body {{ background:#FAFCFD; min-height:100vh; padding:32px; display:flex; align-
   <div class="brand">NAPEL <span>LMS</span></div>
   <div class="title">Certificado de Conclusão</div>
   <h1>Conferimos a</h1>
-  <div class="recipient">{user.name.upper()} {user.surname.upper()}</div>
+  <div class="recipient">{recipient.upper()}</div>
   <p class="body-text">
-    Por ter concluído com aproveitamento o curso<br>
-    <span class="course">"{course.name}"</span><br>
+    Por ter concluído com aproveitamento {kind_label}<br>
+    <span class="course">"{title}"</span><br>
     aplicando-se os conhecimentos necessários à formação contínua da equipe Napel.
   </p>
   <div class="footer">
-    <div class="col"><div class="label">Data emissão</div><div class="value">{cert.issued_at.strftime('%d/%m/%Y')}</div></div>
-    <div class="col"><div class="label">Código de validação</div><div class="value">{cert.code}</div></div>
+    <div class="col"><div class="label">Data emissão</div><div class="value">{issued_at.strftime('%d/%m/%Y')}</div></div>
+    <div class="col"><div class="label">Código de validação</div><div class="value">{code}</div></div>
   </div>
-  <div class="code">Verifique em lms.napel.com.br/certificates/{cert.code}</div>
+  <div class="code">Verifique em lms.napel.com.br/certificates/{code}</div>
 </div>
 <button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
 </body></html>"""
+
+
+@app.get("/api/certificates/{cert_id}/html", response_class=HTMLResponse)
+def render_certificate_html(cert_id: int, db: Session = Depends(get_db)):
+    cert = db.query(Certificate).get(cert_id)
+    if not cert:
+        raise HTTPException(404, "certificate not found")
+    user = db.query(User).get(cert.user_id)
+    course = db.query(Course).get(cert.course_id)
+    html = _certificate_html(f"{user.name} {user.surname}", "o curso", course.name, cert.code, cert.issued_at)
     return HTMLResponse(content=html)
 
 
@@ -1077,3 +1090,228 @@ def training_matrix(db: Session = Depends(get_db), _: User = Depends(current_use
         "courses": [{"id": c.id, "name": c.name, "code": c.code} for c in courses],
         "cells": cells,
     }
+
+
+# ============ LEARNING PATHS (L3) ============
+def _path_out(db: Session, p: LearningPath, user_id: int) -> dict:
+    course_ids = [r.course_id for r in db.query(LearningPathCourse).filter(LearningPathCourse.path_id == p.id).all()]
+    my_pct = 0
+    if course_ids:
+        pcts = [compute_course_progress(db, user_id, cid) for cid in course_ids]
+        my_pct = int(round(sum(pcts) / len(pcts)))
+    return {
+        "id": p.id, "name": p.name, "code": p.code, "description": p.description,
+        "category": p.category, "status": p.status, "sequential": p.sequential,
+        "icon": p.icon, "courses_count": len(course_ids), "my_pct": my_pct,
+        "created_at": p.created_at,
+    }
+
+
+@app.get("/api/paths")
+def list_paths(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    paths = db.query(LearningPath).order_by(LearningPath.created_at).all()
+    return [_path_out(db, p, user.id) for p in paths]
+
+
+@app.get("/api/paths/{path_id}")
+def get_path(path_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    p = db.query(LearningPath).filter(LearningPath.id == path_id).first()
+    if not p:
+        raise HTTPException(404, "path not found")
+    links = db.query(LearningPathCourse).filter(LearningPathCourse.path_id == path_id).order_by(LearningPathCourse.order_index).all()
+    courses = []
+    prev_completed = True
+    for link in links:
+        c = db.query(Course).get(link.course_id)
+        if not c:
+            continue
+        enr = db.query(Enrollment).filter(Enrollment.user_id == user.id, Enrollment.course_id == c.id).first()
+        pct = compute_course_progress(db, user.id, c.id) if enr else 0
+        completed = bool(enr and enr.completed_at)
+        if completed:
+            course_status = "completed"
+        elif enr and pct > 0:
+            course_status = "in_progress"
+        elif not p.sequential or prev_completed:
+            course_status = "available"
+        else:
+            course_status = "locked"
+        courses.append({
+            "course_id": c.id, "order_index": link.order_index, "name": c.name,
+            "code": c.code, "icon": c.icon, "units_count": len(c.units),
+            "status": course_status, "pct": pct,
+        })
+        prev_completed = completed
+    cert = db.query(PathCertificate).filter(PathCertificate.user_id == user.id, PathCertificate.path_id == path_id).first()
+    return {**_path_out(db, p, user.id), "courses": courses, "certificate_id": cert.id if cert else None}
+
+
+@app.post("/api/paths", status_code=201)
+def create_path(data: schemas.LearningPathCreate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    if data.code and db.query(LearningPath).filter(LearningPath.code == data.code).first():
+        raise HTTPException(409, "código já em uso")
+    p = LearningPath(**data.model_dump())
+    db.add(p); db.commit(); db.refresh(p)
+    return _path_out(db, p, user.id)
+
+
+@app.patch("/api/paths/{path_id}")
+def update_path(path_id: int, data: schemas.LearningPathUpdate, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    p = db.query(LearningPath).filter(LearningPath.id == path_id).first()
+    if not p:
+        raise HTTPException(404, "path not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(p, k, v)
+    db.commit(); db.refresh(p)
+    return _path_out(db, p, user.id)
+
+
+@app.delete("/api/paths/{path_id}")
+def delete_path(path_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    p = db.query(LearningPath).filter(LearningPath.id == path_id).first()
+    if not p:
+        raise HTTPException(404, "path not found")
+    db.delete(p); db.commit()
+    return {"status": "deleted"}
+
+
+@app.put("/api/paths/{path_id}/courses")
+def set_path_courses(path_id: int, data: schemas.LearningPathCoursesIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    db.query(LearningPathCourse).filter(LearningPathCourse.path_id == path_id).delete()
+    for i, cid in enumerate(data.course_ids, start=1):
+        db.add(LearningPathCourse(path_id=path_id, course_id=cid, order_index=i))
+    db.commit()
+    return {"courses": len(data.course_ids)}
+
+
+@app.post("/api/paths/{path_id}/enroll-bulk")
+def bulk_enroll_path(path_id: int, data: schemas.BulkEnrollIn, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    course_ids = [r.course_id for r in db.query(LearningPathCourse).filter(LearningPathCourse.path_id == path_id).all()]
+    added = 0; skipped = 0
+    for uid in data.user_ids:
+        for cid in course_ids:
+            existing = db.query(Enrollment).filter(Enrollment.user_id == uid, Enrollment.course_id == cid).first()
+            if existing:
+                skipped += 1; continue
+            db.add(Enrollment(user_id=uid, course_id=cid, role=data.role))
+            added += 1
+    db.commit()
+    return {"added": added, "skipped": skipped}
+
+
+def _maybe_issue_path_certificate(db: Session, user_id: int, path_id: int):
+    path = db.query(LearningPath).get(path_id)
+    if not path:
+        return None
+    existing = db.query(PathCertificate).filter(PathCertificate.user_id == user_id, PathCertificate.path_id == path_id).first()
+    if existing:
+        return existing
+    course_ids = [r.course_id for r in db.query(LearningPathCourse).filter(LearningPathCourse.path_id == path_id).all()]
+    if not course_ids:
+        return None
+    for cid in course_ids:
+        enr = db.query(Enrollment).filter(Enrollment.user_id == user_id, Enrollment.course_id == cid).first()
+        if not enr or not enr.completed_at:
+            return None  # ainda falta concluir algum curso da trilha
+    code = f"NAPEL-TRILHA-{datetime.utcnow().year}-{secrets.token_hex(3).upper()}"
+    cert = PathCertificate(user_id=user_id, path_id=path_id, code=code)
+    db.add(cert); db.commit(); db.refresh(cert)
+    return cert
+
+
+def _maybe_issue_path_certificates_for_course(db: Session, user_id: int, course_id: int):
+    """Curso concluído pode ser o último de 1+ trilhas — checa todas as trilhas que o contêm."""
+    links = db.query(LearningPathCourse).filter(LearningPathCourse.course_id == course_id).all()
+    for link in links:
+        _maybe_issue_path_certificate(db, user_id, link.path_id)
+
+
+@app.get("/api/users/me/path-certificates", response_model=List[schemas.PathCertificateOut])
+def my_path_certificates(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    certs = db.query(PathCertificate).filter(PathCertificate.user_id == user.id).all()
+    out = []
+    for c in certs:
+        path = db.query(LearningPath).get(c.path_id)
+        co = schemas.PathCertificateOut.model_validate(c)
+        co.path_name = path.name if path else "?"
+        co.user_name = f"{user.name} {user.surname}".strip()
+        out.append(co)
+    return out
+
+
+@app.get("/api/path-certificates/{cert_id}/html", response_class=HTMLResponse)
+def render_path_certificate_html(cert_id: int, db: Session = Depends(get_db)):
+    cert = db.query(PathCertificate).get(cert_id)
+    if not cert:
+        raise HTTPException(404, "certificate not found")
+    user = db.query(User).get(cert.user_id)
+    path = db.query(LearningPath).get(cert.path_id)
+    html = _certificate_html(f"{user.name} {user.surname}", "a trilha de formação", path.name, cert.code, cert.issued_at)
+    return HTMLResponse(content=html)
+
+
+# ============ ACTIVITY FEED (L2) ============
+@app.get("/api/reports/activity")
+def activity_feed(limit: int = 30, offset: int = 0, kind: Optional[str] = None, user_id: Optional[int] = None,
+                  db: Session = Depends(get_db), _: User = Depends(current_user)):
+    """Deriva o feed de atividades das tabelas existentes (sem tabela de log própria)."""
+    events = []
+
+    def _actor(u):
+        return {"actor_id": u.id, "actor_name": f"{u.name} {u.surname}".strip(), "actor_initials": u.avatar_initials}
+
+    q_users = db.query(User).filter(User.last_login.isnot(None))
+    if user_id: q_users = q_users.filter(User.id == user_id)
+    for u in q_users.all():
+        events.append({"ts": u.last_login, "kind": "login", "text": "entrou no portal", **_actor(u)})
+
+    q_prog = db.query(Progress).filter(Progress.completed_at.isnot(None))
+    if user_id: q_prog = q_prog.filter(Progress.user_id == user_id)
+    for pr in q_prog.all():
+        u = db.query(User).get(pr.user_id); unit = db.query(Unit).get(pr.unit_id)
+        if not u or not unit: continue
+        events.append({"ts": pr.completed_at, "kind": "unit_completed", "text": f'concluiu "{unit.title}"', **_actor(u)})
+
+    q_quiz = db.query(QuizAttempt).filter(QuizAttempt.passed == True)
+    if user_id: q_quiz = q_quiz.filter(QuizAttempt.user_id == user_id)
+    for qa in q_quiz.all():
+        u = db.query(User).get(qa.user_id); unit = db.query(Unit).get(qa.unit_id)
+        if not u or not unit: continue
+        events.append({"ts": qa.completed_at, "kind": "quiz_passed", "text": f'tirou {qa.score_pct}% no quiz "{unit.title}"', **_actor(u)})
+
+    q_enr = db.query(Enrollment).filter(Enrollment.completed_at.isnot(None))
+    if user_id: q_enr = q_enr.filter(Enrollment.user_id == user_id)
+    for e in q_enr.all():
+        u = db.query(User).get(e.user_id); c = db.query(Course).get(e.course_id)
+        if not u or not c: continue
+        events.append({"ts": e.completed_at, "kind": "course_completed", "text": f'concluiu o curso "{c.name}"', **_actor(u)})
+
+    q_badge = db.query(UserBadge)
+    if user_id: q_badge = q_badge.filter(UserBadge.user_id == user_id)
+    for ub in q_badge.all():
+        u = db.query(User).get(ub.user_id); b = db.query(Badge).get(ub.badge_id)
+        if not u or not b: continue
+        events.append({"ts": ub.earned_at, "kind": "badge_earned", "text": f'desbloqueou a badge "{b.name}"', **_actor(u)})
+
+    q_cert = db.query(Certificate)
+    if user_id: q_cert = q_cert.filter(Certificate.user_id == user_id)
+    for c in q_cert.all():
+        u = db.query(User).get(c.user_id); course = db.query(Course).get(c.course_id)
+        if not u or not course: continue
+        events.append({"ts": c.issued_at, "kind": "certificate_issued", "text": f'emitiu certificado de "{course.name}"', **_actor(u)})
+
+    q_pcert = db.query(PathCertificate)
+    if user_id: q_pcert = q_pcert.filter(PathCertificate.user_id == user_id)
+    for c in q_pcert.all():
+        u = db.query(User).get(c.user_id); path = db.query(LearningPath).get(c.path_id)
+        if not u or not path: continue
+        events.append({"ts": c.issued_at, "kind": "path_certificate_issued", "text": f'concluiu a trilha "{path.name}"', **_actor(u)})
+
+    if kind:
+        events = [e for e in events if e["kind"] == kind]
+    events.sort(key=lambda e: e["ts"] or datetime.min, reverse=True)
+    total = len(events)
+    page = events[offset:offset + limit]
+    for e in page:
+        e["ts"] = e["ts"].isoformat() if e["ts"] else None
+    return {"events": page, "total": total}

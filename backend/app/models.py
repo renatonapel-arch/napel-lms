@@ -178,3 +178,39 @@ class Setting(Base):
     key = Column(String(64), primary_key=True)
     value = Column(JSON, default=dict)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ============ LEARNING PATHS (L3) ============
+class LearningPath(Base):
+    __tablename__ = "learning_paths"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    code = Column(String(32), unique=True, nullable=True)
+    description = Column(Text, default="")
+    category = Column(String(64), default="Geral")
+    status = Column(String(16), default="active")  # active | draft
+    sequential = Column(Boolean, default=True)  # trava próximo curso até concluir o anterior
+    icon = Column(String(32), default="route")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class LearningPathCourse(Base):
+    __tablename__ = "learning_path_courses"
+    id = Column(Integer, primary_key=True)
+    path_id = Column(Integer, ForeignKey("learning_paths.id", ondelete="CASCADE"), nullable=False, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_index = Column(Integer, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("path_id", "course_id", name="uq_path_course"),
+        UniqueConstraint("path_id", "order_index", name="uq_path_order"),
+    )
+
+
+class PathCertificate(Base):
+    __tablename__ = "path_certificates"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    path_id = Column(Integer, ForeignKey("learning_paths.id", ondelete="CASCADE"), nullable=False, index=True)
+    code = Column(String(32), unique=True, nullable=False)
+    issued_at = Column(DateTime, default=datetime.utcnow)
+    __table_args__ = (UniqueConstraint("user_id", "path_id", name="uq_path_certificate"),)
