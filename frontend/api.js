@@ -1180,7 +1180,10 @@ async function renderUnitPlayer() {
   try {
     const qs = new URLSearchParams(location.hash.split("?")[1] || "");
     const unitId = qs.get("unit"); const courseId = qs.get("course");
-    if (!unitId || !courseId) return;
+    if (!unitId || !courseId) {
+      console.warn("[unit-player] link inválido/incompleto — esperado #/unit-player?course=X&unit=Y, recebido:", location.hash);
+      return;
+    }
     const [unit, allUnits, myEnrolls, courseInfo] = await Promise.all([
       api(`/api/units/${unitId}`),
       api(`/api/courses/${courseId}/units`),

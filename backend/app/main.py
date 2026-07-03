@@ -117,9 +117,13 @@ def me(user: User = Depends(current_user)):
 
 
 # ============ USERS ============
-@app.get("/api/users", response_model=List[schemas.UserOut])
-def list_users(db: Session = Depends(get_db), _: User = Depends(current_user)):
-    return db.query(User).order_by(User.points.desc()).all()
+@app.get("/api/users")
+def list_users(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    users = db.query(User).order_by(User.points.desc()).all()
+    if user.user_type in ("SuperAdmin", "Admin"):
+        return [schemas.UserOut.model_validate(u) for u in users]
+    # não-admin: só o mínimo pra listar colegas de turma (nome/avatar/email) — sem login, filial, pontos, último acesso
+    return [{"id": u.id, "name": u.name, "surname": u.surname, "email": u.email, "avatar_initials": u.avatar_initials} for u in users]
 
 
 @app.get("/api/users/{user_id}", response_model=schemas.UserDetail)
