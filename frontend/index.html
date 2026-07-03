@@ -122,15 +122,15 @@ tailwind.config = {
   /* mobile-only utilities */
   .lg-only { display: none; }
   @media (min-width: 1024px) { .lg-only { display: initial; } }
-  /* Matrix de formação — cabeçalho diagonal 45° à direita, escala com N cursos/users */
+  /* Matrix de formação — cabeçalho vertical (writing-mode), sempre cabe, escala com N cursos/users */
   .matrix-wrap { overflow-x: auto; overflow-y: visible; padding-top: 8px; }
   .matrix-table { border-collapse: separate; border-spacing: 0; width: auto; }
   .matrix-table thead th { background: #FAFCFD; vertical-align: bottom; }
-  .matrix-table th.user-header { text-align: left; padding: 0 16px 14px; height: 340px; min-width: 260px; width: 260px; font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #E4EEF3; position: sticky; left: 0; background: #FAFCFD; z-index: 3; vertical-align: bottom; }
-  .matrix-table th.course-col { height: 340px; padding: 0 0 8px 0; border-bottom: 1px solid #E4EEF3; width: 80px; min-width: 80px; max-width: 80px; vertical-align: bottom; text-align: center; position: relative; overflow: visible; }
-  .matrix-table th.course-col .course-label { position: absolute; left: 12px; bottom: 40px; transform-origin: left bottom; transform: rotate(-45deg); white-space: nowrap; font-size: 13px; font-weight: 600; color: #113C58; line-height: 1.2; padding: 4px 12px 4px 6px; overflow: visible; text-align: left; display: block; }
-  .matrix-table th.course-col .course-code { position: absolute; left: 50%; transform: translateX(-50%); bottom: 8px; display: inline-block; font-size: 9px; font-weight: 700; color: #7DA4C6; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 5px; background: #EBF7FA; border-radius: 3px; text-align: center; white-space: nowrap; }
-  .matrix-table tbody td { padding: 14px 8px; text-align: center; border-bottom: 1px solid #F1F5F9; font-size: 14px; color: #1e293b; width: 80px; min-width: 80px; max-width: 80px; }
+  .matrix-table th.user-header { text-align: left; padding: 0 16px 14px; height: 260px; min-width: 260px; width: 260px; font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #E4EEF3; position: sticky; left: 0; background: #FAFCFD; z-index: 3; vertical-align: bottom; }
+  .matrix-table th.course-col { height: 260px; padding: 8px 0 12px 0; border-bottom: 1px solid #E4EEF3; width: 48px; min-width: 48px; max-width: 48px; vertical-align: bottom; text-align: center; }
+  .matrix-table th.course-col .course-label { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; font-size: 13px; font-weight: 600; color: #113C58; line-height: 1.2; margin: 0 auto; display: inline-block; max-height: 240px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+  .matrix-table th.course-col .course-code { display: block; font-size: 9px; font-weight: 700; color: #7DA4C6; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px; padding: 1px 4px; background: #EBF7FA; border-radius: 3px; text-align: center; }
+  .matrix-table tbody td { padding: 14px 8px; text-align: center; border-bottom: 1px solid #F1F5F9; font-size: 14px; color: #1e293b; width: 48px; min-width: 48px; max-width: 48px; }
   .matrix-table tbody td.user-cell { text-align: left; padding-left: 16px; font-weight: 500; color: #113C58; min-width: 260px; width: 260px; max-width: 260px; position: sticky; left: 0; background: white; z-index: 1; }
   .matrix-table tbody tr:hover td { background: #FAFCFD; }
   .matrix-table tbody tr:hover td.user-cell { background: #EBF7FA; }
@@ -2059,7 +2059,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=18"></script>
+<script src="api.js?v=19"></script>
 <script src="actions.js?v=6"></script>
 </body>
 </html>
