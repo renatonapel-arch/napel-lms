@@ -85,12 +85,14 @@ function valNum(id) { const v = parseInt(val(id)); return isNaN(v) ? null : v; }
 
 /* ============ MODAIS DE FORM ============ */
 async function openCreateCourse() {
+  const cats = await api("/api/categories").catch(() => []);
+  const catChoices = cats.length ? cats.map(c => c.name) : ["Geral"];
   showModal({
     title: "Adicionar curso",
     bodyHtml:
       fld("c-name", "Nome do curso *", { placeholder: "Ex: Treinamento de Vendas Avançado" }) +
       fld("c-code", "Código (opcional)", { required: false, placeholder: "Ex: VND-105" }) +
-      fld("c-category", "Categoria", { choices: ["Técnicas de venda", "Catálogo técnico", "Atendimento ao cliente", "Compliance", "Geral"] }) +
+      fld("c-category", "Categoria", { choices: catChoices }) +
       fld("c-description", "Descrição", { rows: 3, required: false, placeholder: "O que esse curso ensina?" }) +
       fld("c-status", "Status", { choices: [{value:"active",label:"Ativo"},{value:"draft",label:"Rascunho"}] }),
     okText: "Criar curso",
@@ -111,13 +113,17 @@ async function openCreateCourse() {
 }
 
 async function openEditCourse(courseId) {
-  const c = await api(`/api/courses/${courseId}`);
+  const [c, cats] = await Promise.all([
+    api(`/api/courses/${courseId}`),
+    api("/api/categories").catch(() => []),
+  ]);
+  const catChoices = cats.length ? cats.map(cat => cat.name) : ["Geral"];
   showModal({
     title: "Editar curso",
     bodyHtml:
       fld("c-name", "Nome", { value: c.name }) +
       fld("c-code", "Código", { value: c.code || "", required: false }) +
-      fld("c-category", "Categoria", { value: c.category, choices: ["Técnicas de venda", "Catálogo técnico", "Atendimento ao cliente", "Compliance", "Geral"] }) +
+      fld("c-category", "Categoria", { value: c.category, choices: catChoices }) +
       fld("c-description", "Descrição", { rows: 3, required: false, value: c.description || "" }) +
       fld("c-status", "Status", { value: c.status, choices: [{value:"active",label:"Ativo"},{value:"draft",label:"Rascunho"},{value:"archived",label:"Arquivado"}] }),
     okText: "Salvar",
