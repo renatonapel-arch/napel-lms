@@ -536,8 +536,8 @@ tailwind.config = {
           <input type="search" placeholder="Procurar por título, código, instrutor…" class="w-full pl-10 pr-4 h-10 rounded-md bg-gelo border border-transparent focus:bg-white focus:border-borders text-sm">
           <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
         </div>
-        <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
-          <option>Todas as categorias</option><option>Técnicas de venda</option><option>Catálogo técnico</option><option>Atendimento</option><option>Compliance</option>
+        <select id="courses-category-filter" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          <option>Todas as categorias</option>
         </select>
         <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
           <option>Todos os status</option><option>Ativo</option><option>Rascunho</option><option>Arquivado</option>
@@ -2121,7 +2121,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=20"></script>
-<script src="actions.js?v=6"></script>
+<script src="api.js?v=21"></script>
+<script src="actions.js?v=7"></script>
 </body>
 </html>

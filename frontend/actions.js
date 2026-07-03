@@ -573,7 +573,7 @@ let coursesAllCache = null;
 async function applyCoursesFilter() {
   if (!coursesAllCache) coursesAllCache = await api("/api/courses");
   const search = document.querySelector("#page-courses input[type=search]")?.value.toLowerCase() || "";
-  const cat = document.querySelector("#page-courses select:nth-of-type(1)")?.value || "";
+  const cat = document.getElementById("courses-category-filter")?.value || "";
   const status = document.querySelector("#page-courses select:nth-of-type(2)")?.value || "";
   const filtered = coursesAllCache.filter(c => {
     if (search && !(c.name.toLowerCase().includes(search) || (c.code || "").toLowerCase().includes(search))) return false;
@@ -922,6 +922,7 @@ document.addEventListener("input", e => {
   }
 });
 document.addEventListener("change", e => {
+  if (e.target.closest("#page-courses select")) applyCoursesFilter();
   if (e.target.closest("#page-users select")) applyUsersFilter();
 });
 

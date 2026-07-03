@@ -304,9 +304,17 @@ async function renderDashboard() {
 /* ============ COURSES LIST ============ */
 async function renderCourses() {
   try {
+    coursesAllCache = null; // força o filtro a buscar dado fresco na próxima aplicação
     const courses = await api("/api/courses");
     const grid = $("#page-courses .grid.grid-cols-1");
     if (!grid) return;
+    // popula dropdown de categoria com as categorias reais (uma vez só)
+    const catFilter = $("#courses-category-filter");
+    if (catFilter && !catFilter.dataset.populated) {
+      catFilter.dataset.populated = "1";
+      const cats = await api("/api/categories").catch(() => []);
+      catFilter.innerHTML = `<option>Todas as categorias</option>` + cats.map(c => `<option>${escapeHtml(c.name)}</option>`).join("");
+    }
     // subtítulo dinâmico
     const subtitle = $("#page-courses h1 + p");
     if (subtitle) {
