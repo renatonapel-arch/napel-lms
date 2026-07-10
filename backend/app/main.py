@@ -232,10 +232,25 @@ def list_units(course_id: int, db: Session = Depends(get_db), _: User = Depends(
 
 
 @app.get("/api/units/{unit_id}", response_model=schemas.UnitOut)
-def get_unit(unit_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+def get_unit(unit_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     unit = db.query(Unit).filter(Unit.id == unit_id).first()
     if not unit:
         raise HTTPException(404, "unit not found")
+    # bloqueio sequencial: se o curso é sequential e a unit anterior não foi concluída pelo user, bloqueia
+    # admins nunca são bloqueados (precisam ver o conteúdo pra revisar)
+    if user.user_type not in ("SuperAdmin", "Admin"):
+        course = db.query(Course).get(unit.course_id)
+        if course and course.sequential and unit.order_index > 1:
+            prev = db.query(Unit).filter(
+                Unit.course_id == unit.course_id,
+                Unit.order_index < unit.order_index,
+            ).order_by(Unit.order_index.desc()).first()
+            if prev:
+                prev_prog = db.query(Progress).filter(
+                    Progress.user_id == user.id, Progress.unit_id == prev.id
+                ).first()
+                if not prev_prog or (prev_prog.completion_pct or 0) < 100:
+                    raise HTTPException(403, f"aula bloqueada — conclua a aula anterior ({prev.order_index} · {prev.title}) primeiro")
     return unit
 
 
@@ -337,6 +352,55 @@ def my_enrollments(db: Session = Depends(get_db), user: User = Depends(current_u
         eo.progress_pct = compute_course_progress(db, user.id, e.course_id)
         out.append(eo)
     return out
+
+
+@app.get("/api/users/me/progress")
+def my_progress(course_id: Optional[int] = None, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Lista progresso do usuário; filtro opcional por curso."""
+    q = db.query(Progress).filter(Progress.user_id == user.id)
+    if course_id:
+        unit_ids = [u.id for u in db.query(Unit).filter(Unit.course_id == course_id).all()]
+        q = q.filter(Progress.unit_id.in_(unit_ids)) if unit_ids else q.filter(False)
+    rows = q.all()
+    return [{"unit_id": p.unit_id, "completion_pct": p.completion_pct or 0, "completed_at": p.completed_at.isoformat() if p.completed_at else None, "score": p.score} for p in rows]
+
+
+@app.get("/api/users/me/resume")
+def my_resume(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Retorna a próxima aula a fazer, priorizando o curso com atividade mais recente."""
+    def _next_unit_of(course_id: int):
+        units = db.query(Unit).filter(Unit.course_id == course_id).order_by(Unit.order_index).all()
+        for u in units:
+            p = db.query(Progress).filter(Progress.user_id == user.id, Progress.unit_id == u.id).first()
+            if not p or (p.completion_pct or 0) < 100:
+                return u
+        return None
+
+    # 1) Progress mais recente -> continua no mesmo curso
+    recent_prog = db.query(Progress).filter(Progress.user_id == user.id).order_by(Progress.updated_at.desc()).first()
+    if recent_prog:
+        recent_unit = db.query(Unit).get(recent_prog.unit_id)
+        if recent_unit:
+            nxt = _next_unit_of(recent_unit.course_id)
+            if nxt:
+                course = db.query(Course).get(recent_unit.course_id)
+                pct = compute_course_progress(db, user.id, recent_unit.course_id)
+                return {
+                    "unit_id": nxt.id, "unit_title": nxt.title, "unit_type": nxt.type, "unit_section": nxt.section, "duration_min": nxt.duration_min,
+                    "course_id": course.id, "course_name": course.name, "course_pct": pct,
+                }
+
+    # 2) Sem progress: primeira aula da matrícula mais recente
+    enr = db.query(Enrollment).filter(Enrollment.user_id == user.id).order_by(Enrollment.enrolled_at.desc()).first()
+    if enr:
+        nxt = _next_unit_of(enr.course_id)
+        if nxt:
+            course = db.query(Course).get(enr.course_id)
+            return {
+                "unit_id": nxt.id, "unit_title": nxt.title, "unit_type": nxt.type, "unit_section": nxt.section, "duration_min": nxt.duration_min,
+                "course_id": course.id, "course_name": course.name, "course_pct": 0,
+            }
+    return None
 
 
 @app.delete("/api/enrollments/{enroll_id}", status_code=204)

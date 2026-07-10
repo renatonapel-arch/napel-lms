@@ -184,12 +184,13 @@ function renderTopbar(user) {
 /* ============ DASHBOARD ============ */
 async function renderDashboard() {
   try {
-    const [overview, leaderboard, topCourses, timeline, activity] = await Promise.all([
+    const [overview, leaderboard, topCourses, timeline, activity, resume] = await Promise.all([
       api("/api/dashboard/overview"),
       api("/api/leaderboard?limit=5"),
       api("/api/dashboard/top-courses?limit=5"),
       api("/api/dashboard/timeline?limit=8"),
       api("/api/dashboard/portal-activity?days=7"),
+      api("/api/users/me/resume").catch(() => null),
     ]);
 
     // header "Bem-vindo, RENATO!"
@@ -197,6 +198,36 @@ async function renderDashboard() {
     if (h1) h1.innerHTML = `<i data-lucide="party-popper" class="w-7 h-7 text-warn-bd"></i> Bem-vindo, ${escapeHtml(state.user.name.toUpperCase())}!`;
     const subtitle = $("#page-dashboard h1 + p");
     if (subtitle) subtitle.textContent = `${new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} · ${overview.users_active} ${overview.users_active === 1 ? "utilizador ativo" : "utilizadores ativos"} · ${overview.courses_total} ${overview.courses_total === 1 ? "curso" : "cursos"}`;
+
+    // Card "Continuar de onde parou" — injeta acima dos widgets
+    const dashSection = $("#page-dashboard");
+    let resumeCard = $("#dash-resume-card");
+    if (resume && resume.unit_id) {
+      const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", assignment: "clipboard-check" };
+      const secLine = resume.unit_section ? escapeHtml(resume.unit_section) + " · " : "";
+      const html = `
+        <div id="dash-resume-card" class="rounded-lg p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-md cursor-pointer" style="background:linear-gradient(135deg,#113C58,#7DA4C6);color:white" onclick="location.hash='#/unit-player?course=${resume.course_id}&unit=${resume.unit_id}'">
+          <div class="flex-1 min-w-0">
+            <div class="text-[10px] font-bold uppercase tracking-widest opacity-80">Continue de onde parou</div>
+            <div class="text-lg font-bold mt-1 truncate">${escapeHtml(resume.unit_title)}</div>
+            <div class="text-xs opacity-90 mt-0.5">${secLine}${escapeHtml(resume.course_name)} · ${resume.course_pct}% concluído</div>
+          </div>
+          <button class="px-4 py-2.5 bg-white text-naval rounded-md text-sm font-bold hover:opacity-90 flex items-center gap-2 shadow-sm shrink-0" onclick="event.stopPropagation();location.hash='#/unit-player?course=${resume.course_id}&unit=${resume.unit_id}'">
+            <i data-lucide="${iconByType[resume.unit_type] || "play"}" class="w-4 h-4"></i> Retomar aula
+          </button>
+        </div>`;
+      if (resumeCard) { resumeCard.outerHTML = html; }
+      else {
+        const target = $("#page-dashboard h1")?.parentElement || dashSection;
+        // insere após o header (h1 + p)
+        const insertAfter = target.querySelector("h1")?.nextElementSibling || target.firstChild;
+        target.insertAdjacentHTML("afterbegin", html);
+        // reposiciona para ficar DEPOIS do subtitle:
+        const card = $("#dash-resume-card");
+        const subP = target.querySelector("h1 + p");
+        if (card && subP) subP.after(card);
+      }
+    } else if (resumeCard) { resumeCard.remove(); }
 
     // sidebar badge "Utilizadores" - atualiza count
     const sideUsers = document.querySelector('#sidebar a[data-nav="user-detail"] span.ml-auto');
@@ -399,23 +430,67 @@ async function renderCourseDetail() {
       }
     } catch (e) { /* ignora */ }
 
-    // units (com botões edit + delete)
+    // units (com botões edit + delete, agrupadas por section quando existir)
     const unitsList = $("#page-course-detail .bg-white.border.border-borderd.rounded-lg.divide-y");
     if (unitsList && course.units) {
       const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
-      unitsList.innerHTML = course.units.map((u, i) => `
-        <div class="unit-row" draggable="true" data-unit-id="${u.id}">
+      // marca progresso das units pra mostrar ✓ / atual / bloqueada
+      const myProg = await api("/api/users/me/progress?course_id=" + course.id).catch(() => []);
+      const progMap = Object.fromEntries((myProg || []).map(p => [p.unit_id, p]));
+      const isSeq = !!course.sequential;
+      const isAdmin = state.user && (state.user.user_type === "SuperAdmin" || state.user.user_type === "Admin");
+      let firstIncomplete = null;
+      for (const u of course.units) { const p = progMap[u.id]; if (!p || (p.completion_pct || 0) < 100) { firstIncomplete = u.id; break; } }
+
+      const rowHtml = (u) => {
+        const prog = progMap[u.id];
+        const done = prog && (prog.completion_pct || 0) >= 100;
+        const isCurrent = u.id === firstIncomplete;
+        const locked = isSeq && !isAdmin && !done && !isCurrent;
+        const stateBadge = done ? '<span class="text-[10px] font-semibold text-success-fg bg-success-bg px-2 py-0.5 rounded-full">✓ Concluída</span>'
+          : isCurrent ? '<span class="text-[10px] font-semibold text-white bg-ceu-strong px-2 py-0.5 rounded-full" style="background:#7DA4C6">Próxima</span>'
+          : locked ? '<span class="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">🔒 Bloqueada</span>'
+          : "";
+        const clickable = !locked;
+        const bgClass = isCurrent ? "bg-gelo" : done ? "opacity-70" : locked ? "opacity-50" : "";
+        return `
+        <div class="unit-row ${bgClass}" draggable="true" data-unit-id="${u.id}">
           <i data-lucide="grip-vertical" class="w-4 h-4 text-slate-300 cursor-grab" title="Arrastar pra reordenar"></i>
-          <div class="unit-icon"><i data-lucide="${iconByType[u.type] || "circle"}" class="w-4 h-4"></i></div>
-          <div class="flex-1 cursor-pointer" onclick="location.hash='#/unit-player?course=${course.id}&unit=${u.id}'">
+          <div class="unit-icon"><i data-lucide="${locked ? "lock" : (iconByType[u.type] || "circle")}" class="w-4 h-4"></i></div>
+          <div class="flex-1 ${clickable ? "cursor-pointer" : "cursor-not-allowed"}" ${clickable ? `onclick="location.hash='#/unit-player?course=${course.id}&unit=${u.id}'"` : `onclick="toast('Conclua a aula anterior primeiro','info')"`}>
             <div class="text-sm font-semibold text-naval">${u.order_index} · ${escapeHtml(u.title)}</div>
             <div class="text-xs text-slate-500 flex items-center gap-3 mt-0.5">
               <span class="flex items-center gap-1"><i data-lucide="${iconByType[u.type] || "circle"}" class="w-3 h-3"></i> ${escapeHtml(u.type)} · ${u.duration_min} min</span>
+              ${stateBadge}
             </div>
           </div>
           <button data-action="edit-unit" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Editar unidade"><i data-lucide="pencil" class="w-4 h-4 text-naval"></i></button>
           <button data-action="delete-unit" data-id="${u.id}" class="p-2 hover:bg-gelo rounded-md icon-only" aria-label="Deletar"><i data-lucide="trash-2" class="w-4 h-4 text-danger-bd"></i></button>
-        </div>`).join("");
+        </div>`;
+      };
+
+      // agrupa por section (quando existir); mantém ordem por order_index
+      const hasSections = course.units.some(u => u.section);
+      if (!hasSections) {
+        unitsList.innerHTML = course.units.map(rowHtml).join("");
+      } else {
+        const groups = [];
+        let cur = null;
+        for (const u of course.units) {
+          const sec = u.section || "Sem grupo";
+          if (!cur || cur.name !== sec) { cur = { name: sec, units: [] }; groups.push(cur); }
+          cur.units.push(u);
+        }
+        unitsList.innerHTML = groups.map(g => {
+          const total = g.units.length;
+          const done = g.units.filter(u => progMap[u.id] && (progMap[u.id].completion_pct || 0) >= 100).length;
+          const pct = Math.round(done * 100 / total);
+          return `<div class="section-header bg-naval text-white px-4 py-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
+            <span>${escapeHtml(g.name)}</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.18)">${done} de ${total} · ${pct}%</span>
+          </div>` + g.units.map(rowHtml).join("");
+        }).join("");
+      }
       bindUnitDragReorder(unitsList, course.id);
     }
 
@@ -1192,8 +1267,19 @@ async function renderUnitPlayer() {
       console.warn("[unit-player] link inválido/incompleto — esperado #/unit-player?course=X&unit=Y, recebido:", location.hash);
       return;
     }
-    const [unit, allUnits, myEnrolls, courseInfo] = await Promise.all([
-      api(`/api/units/${unitId}`),
+    let unit;
+    try {
+      unit = await api(`/api/units/${unitId}`);
+    } catch (err) {
+      // 403 = curso sequencial e aula anterior não foi concluída
+      if (String(err.message).startsWith("403")) {
+        toast("Essa aula está bloqueada — conclua a aula anterior primeiro.", "info");
+        location.hash = `#/course-detail?id=${courseId}`;
+        return;
+      }
+      throw err;
+    }
+    const [allUnits, myEnrolls, courseInfo] = await Promise.all([
       api(`/api/courses/${courseId}/units`),
       api("/api/users/me/enrollments").catch(() => []),
       api(`/api/courses/${courseId}`).catch(() => null),

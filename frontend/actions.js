@@ -206,6 +206,7 @@ async function openEditUnit(unitId) {
 
   const body = `
     ${fld("eu-title", "Título *", { value: u.title })}
+    ${fld("eu-section", "Grupo/Semana (opcional)", { value: u.section || "", required: false, placeholder: "Ex: Semana 1 — Casa e Língua", hint: "Se preenchido, aulas com o mesmo texto ficam agrupadas na tela do curso" })}
     ${fld("eu-type", "Tipo", { value: u.type, choices: [
       {value:"video",label:"Vídeo"},{value:"audio",label:"Áudio"},{value:"text",label:"Texto / Apostila"},{value:"quiz",label:"Quiz / Prova"},{value:"pdf",label:"PDF"},{value:"scorm",label:"SCORM"}
     ]})}
@@ -248,7 +249,8 @@ async function openEditUnit(unitId) {
         };
       }
       await api(`/api/units/${unitId}`, { method: "PATCH", body: JSON.stringify({
-        title: val("eu-title"), type, duration_min: parseInt(val("eu-duration")) || 5, content,
+        title: val("eu-title"), type, duration_min: parseInt(val("eu-duration")) || 5,
+        section: val("eu-section") || null, content,
       })});
       toast("Unidade atualizada ✓");
       if (typeof renderCourseDetail === "function") await renderCourseDetail();
@@ -657,6 +659,11 @@ async function openCourseSettings(courseId) {
       fld("cs-certmin", "Nota mínima p/ emitir certificado (%)", { type: "number", value: String(c.certificate_min_score != null ? c.certificate_min_score : 70), required: false, hint: "Certificado só é emitido se a nota média dos quizzes do curso atingir esse valor. Ex: 70" }) +
       `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
+          <input type="checkbox" id="cs-seq" ${c.sequential ? "checked" : ""}> <span>Curso sequencial — aula N+1 só destrava depois de concluir N</span>
+        </label>
+      </div>` +
+      `<div style="margin-bottom:14px;padding:10px;background:#FAFCFD;border:1px solid #E4EEF3;border-radius:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#113C58;cursor:pointer">
           <input type="checkbox" id="cs-ai" ${c.ai_coach ? "checked" : ""}> <span>AI Coach habilitado (futuro)</span>
         </label>
       </div>` +
@@ -672,6 +679,7 @@ async function openCourseSettings(courseId) {
         is_locked: document.getElementById("cs-locked").checked,
         issue_certificate: document.getElementById("cs-cert").checked,
         certificate_min_score: parseInt(val("cs-certmin")) || 70,
+        sequential: document.getElementById("cs-seq").checked,
         ai_coach: document.getElementById("cs-ai").checked,
       })});
       toast("Configurações salvas ✓");

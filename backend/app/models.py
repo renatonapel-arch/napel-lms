@@ -48,6 +48,7 @@ class Course(Base):
     ai_coach = Column(Boolean, default=False)
     issue_certificate = Column(Boolean, default=True)
     certificate_min_score = Column(Integer, default=70)  # nota média mínima p/ emitir certificado
+    sequential = Column(Boolean, default=False)  # trava aula N+1 até concluir N (ajuste 3)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     units = relationship("Unit", back_populates="course", cascade="all, delete-orphan", order_by="Unit.order_index")
@@ -62,6 +63,7 @@ class Unit(Base):
     type = Column(String(16), nullable=False)  # video|text|quiz|scorm|pdf|assignment|audio
     title = Column(String(255), nullable=False)
     duration_min = Column(Integer, default=5)
+    section = Column(String(64), nullable=True)  # agrupador exibido no course-detail (ex: "Semana 1 — Casa e Língua")
     content = Column(JSON, default=dict)  # video_url, text_md, quiz questions, etc.
     __table_args__ = (UniqueConstraint("course_id", "order_index", name="uq_unit_order"),)
 

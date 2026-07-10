@@ -63,6 +63,7 @@ class CourseOut(BaseModel):
     ai_coach: bool = False
     issue_certificate: bool = True
     certificate_min_score: int = 70
+    sequential: bool = False
     units_count: int = 0
     enrollments_count: int = 0
     created_at: datetime
@@ -79,6 +80,7 @@ class CourseCreate(BaseModel):
     status: str = "active"
     thumbnail_seed: int = 1
     icon: str = "book-open"
+    sequential: bool = False
 
 
 class CourseUpdate(BaseModel):
@@ -97,6 +99,7 @@ class CourseUpdate(BaseModel):
     ai_coach: Optional[bool] = None
     issue_certificate: Optional[bool] = None
     certificate_min_score: Optional[int] = None
+    sequential: Optional[bool] = None
 
 
 # === unit ===
@@ -107,6 +110,7 @@ class UnitOut(BaseModel):
     type: str
     title: str
     duration_min: int
+    section: Optional[str] = None
     content: dict = {}
 
     class Config:
@@ -117,6 +121,7 @@ class UnitCreate(BaseModel):
     type: str
     title: str
     duration_min: int = 5
+    section: Optional[str] = None
     content: dict = {}
 
 
@@ -237,6 +242,7 @@ class UnitUpdate(BaseModel):
     duration_min: Optional[int] = None
     content: Optional[dict] = None
     order_index: Optional[int] = None
+    section: Optional[str] = None
 
 
 class UnitReorderItem(BaseModel):
