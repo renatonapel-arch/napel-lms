@@ -153,8 +153,48 @@ function injectLoginModal() {
     }
   });
 }
-function showLoginModal() { injectLoginModal(); document.getElementById("login-modal").style.display = "flex"; setTimeout(() => document.getElementById("login-user")?.focus(), 50); }
-function hideLoginModal() { const m = document.getElementById("login-modal"); if (m) m.style.display = "none"; }
+// Detecta se está embarcado como iframe (dentro do Clavis). Dentro do Clavis
+// NUNCA mostramos o form de login demo — pedimos um token fresco ao pai (SSO).
+const inIframe = (() => { try { return window.self !== window.top; } catch (_) { return true; } })();
+
+function requestParentToken() {
+  // ping sem dados sensíveis → o pai responde com postMessage {type:'clavis-token'}
+  try { window.parent && window.parent.postMessage({ type: "lms-need-token" }, "*"); } catch (_) {}
+}
+
+function showReconnecting() {
+  requestParentToken();
+  let el = document.getElementById("lms-reconnect");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "lms-reconnect";
+    el.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#F0F7FA;z-index:9999";
+    el.innerHTML = `<div style="text-align:center;font-family:system-ui,-apple-system,sans-serif">
+      <div style="font-size:24px;font-weight:800;color:#113C58;letter-spacing:.05em;margin-bottom:8px">NAPEL <span style="font-size:13px;color:#7DA4C6">LMS</span></div>
+      <div style="font-size:14px;color:#334155">Conectando à sua sessão do Clavis…</div>
+      <div id="lms-reconnect-hint" style="font-size:12px;color:#94A3B8;margin-top:12px;display:none">Se demorar, atualize a página (F5).</div>
+    </div>`;
+    document.body.appendChild(el);
+  }
+  el.style.display = "flex";
+  clearTimeout(showReconnecting._t);
+  showReconnecting._t = setTimeout(() => {
+    const h = document.getElementById("lms-reconnect-hint");
+    if (h) h.style.display = "block";
+    requestParentToken();  // re-pede uma vez
+  }, 6000);
+}
+
+function showLoginModal() {
+  if (inIframe) { showReconnecting(); return; }   // dentro do Clavis → SSO, sem form demo
+  injectLoginModal();
+  document.getElementById("login-modal").style.display = "flex";
+  setTimeout(() => document.getElementById("login-user")?.focus(), 50);
+}
+function hideLoginModal() {
+  const m = document.getElementById("login-modal"); if (m) m.style.display = "none";
+  const r = document.getElementById("lms-reconnect"); if (r) r.style.display = "none";
+}
 
 /* ============ RENDER HELPERS ============ */
 function $(sel, root = document) { return root.querySelector(sel); }
