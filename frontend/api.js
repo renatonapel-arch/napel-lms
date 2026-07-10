@@ -15,6 +15,33 @@ const TOKEN_KEY = "napel_lms_token";
 const USER_KEY = "napel_lms_user";
 const state = { user: null, token: null };
 
+/* ============ SSO CLAVIS ============
+ * Quando embarcado como iframe no Clavis, o token vem via hash fragment
+ * `#access_token=...` na primeira carga, e depois via postMessage a cada 1min
+ * (renovação do Clavis TTL 15min).
+ * Hash é usado (não query) porque não vaza em logs de HTTP server.
+ */
+(function ingestClavisTokenFromHash() {
+  try {
+    const h = location.hash || "";
+    const m = h.match(/[#&]access_token=([^&]+)/);
+    if (m && m[1]) {
+      const tok = decodeURIComponent(m[1]);
+      if (tok) localStorage.setItem(TOKEN_KEY, tok);
+      // limpa o hash pra não deixar token visível na URL
+      const cleaned = h.replace(/[#&]access_token=[^&]+/, "").replace(/^#$/, "");
+      history.replaceState(null, "", location.pathname + location.search + cleaned);
+    }
+  } catch (_) {}
+})();
+window.addEventListener("message", (ev) => {
+  const d = ev.data || {};
+  if (d.type === "clavis-token" && typeof d.token === "string" && d.token) {
+    localStorage.setItem(TOKEN_KEY, d.token);
+    state.token = d.token;
+  }
+});
+
 /* ============ AUTH ============ */
 function getToken() { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }

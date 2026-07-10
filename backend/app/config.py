@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     cors_origins: str = os.getenv("CORS_ORIGINS", "*")
     seed_on_startup: bool = os.getenv("SEED_ON_STARTUP", "true").lower() == "true"
     admin_password: str = os.getenv("ADMIN_PASSWORD", "napel2026")
+    # SSO Clavis — aceita tokens vindos do Clavis (assinados com esse secret)
+    # Nunca EMITE tokens com esse secret; só valida. Auto-provisiona user local no primeiro acesso.
+    clavis_jwt_secret: str = os.getenv("CLAVIS_JWT_SECRET", "")
 
     class Config:
         env_file = ".env"
