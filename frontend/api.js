@@ -14,6 +14,7 @@ const API_BASE = (() => {
 const TOKEN_KEY = "napel_lms_token";
 const USER_KEY = "napel_lms_user";
 const state = { user: null, token: null };
+let authLoading = false;  // true enquanto o bootstrap valida o token (evita modal-por-corrida)
 
 /* ============ SSO CLAVIS ============
  * Quando embarcado como iframe no Clavis, o token vem via hash fragment
@@ -28,9 +29,12 @@ const state = { user: null, token: null };
     if (m && m[1]) {
       const tok = decodeURIComponent(m[1]);
       if (tok) localStorage.setItem(TOKEN_KEY, tok);
-      // limpa o hash pra não deixar token visível na URL
-      const cleaned = h.replace(/[#&]access_token=[^&]+/, "").replace(/^#$/, "");
-      history.replaceState(null, "", location.pathname + location.search + cleaned);
+      // limpa o token do hash. Deixa "#/dashboard" (não vazio) pra que o
+      // redirect inline do index.html NÃO precise reatribuir location.hash
+      // (o que dispararia um hashchange→handleRoute durante o await de auth).
+      let rest = h.replace(/[#&]access_token=[^&]+/, "");
+      if (rest === "" || rest === "#") rest = "#/dashboard";
+      history.replaceState(null, "", location.pathname + location.search + rest);
     }
   } catch (_) {}
 })();
@@ -39,6 +43,11 @@ window.addEventListener("message", (ev) => {
   if (d.type === "clavis-token" && typeof d.token === "string" && d.token) {
     localStorage.setItem(TOKEN_KEY, d.token);
     state.token = d.token;
+    // Se ainda não autenticou (token anterior expirou / 1ª carga falhou),
+    // tenta de novo com o token renovado — sem exigir reload manual.
+    if (!state.user && typeof _lmsBootstrap === "function" && !authLoading) {
+      _lmsBootstrap();
+    }
   }
 });
 
@@ -1584,8 +1593,19 @@ const routes = {
   "activity": () => renderActivity(true),
 };
 async function handleRoute() {
-  // Guard: se não há user/token, força login antes de tentar render
-  if (!state.user || !getToken()) { showLoginModal(); return; }
+  // Sem token = não autenticado → login (fallback p/ acesso standalone fora do Clavis).
+  if (!getToken()) { showLoginModal(); return; }
+  // Token presente mas user ainda não carregado: corrida com o bootstrap
+  // (ex: redirect inline pra #/dashboard dispara hashchange durante o await de /api/auth/me).
+  if (!state.user) {
+    if (authLoading) return;              // bootstrap em andamento — ele renderiza e esconde o modal
+    try {
+      state.user = await api("/api/auth/me");
+      localStorage.setItem(USER_KEY, JSON.stringify(state.user));
+      renderTopbar(state.user);
+    } catch { return; }                    // api() já trata 401 (limpa auth + mostra modal)
+  }
+  hideLoginModal();                         // autenticado → garante que o modal fica escondido
   const name = (location.hash || "#/dashboard").replace("#/", "").split("?")[0];
   if (routes[name]) {
     try { await routes[name](); } catch (e) { console.error("[route]", e); }
@@ -1617,14 +1637,18 @@ async function _lmsBootstrap() {
   const token = getToken();
   if (!token) { showLoginModal(); return; }
   state.token = token;
+  authLoading = true;                       // trava handleRoute de mostrar o modal durante o await
   try {
     state.user = await api("/api/auth/me");
     localStorage.setItem(USER_KEY, JSON.stringify(state.user));
     renderTopbar(state.user);
+    hideLoginModal();                        // autenticado com sucesso → esconde o modal
     await handleRoute();
   } catch {
     clearAuth();
     showLoginModal();
+  } finally {
+    authLoading = false;
   }
 }
 // Defensivo: DOMContentLoaded pode já ter disparado (iframe recém-carregado,
