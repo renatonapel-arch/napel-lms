@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
-from .models import User
+from .models import User, Enrollment, LearningPath, LearningPathCourse
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2 = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
@@ -60,11 +60,17 @@ def _provision_from_clavis(db: Session, payload: dict) -> User:
 
     user = db.query(User).filter(User.email == email).first()
     if user:
-        # Atualiza dados que podem ter mudado no Clavis (nome, cargo→papel)
+        # Atualiza dados que podem ter mudado no Clavis (nome)
         if user.name != first: user.name = first
         if surname and user.surname != surname: user.surname = surname
-        # Só rebaixa papel se veio explicitamente do Clavis; nunca sobe SuperAdmin daqui
-        if user.user_type != "SuperAdmin" and user.user_type != lms_type:
+        # Papel só é ajustado a partir de sinal confiável do Clavis:
+        #  - role=admin no Clavis → SuperAdmin (sempre elevar);
+        #  - cargo explícito no payload → recomputa o papel;
+        #  - sem cargo e não-admin → preserva o papel atual (respeita Admin setado à mão).
+        # O JWT do Clavis hoje NÃO carrega cargo, então elevações manuais p/ Admin persistem.
+        if lms_type == "SuperAdmin":
+            user.user_type = "SuperAdmin"
+        elif cargo and user.user_type != "SuperAdmin" and user.user_type != lms_type:
             user.user_type = lms_type
         user.last_login = datetime.utcnow()
         db.commit()
@@ -89,7 +95,34 @@ def _provision_from_clavis(db: Session, payload: dict) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    _auto_enroll_mandatory(db, user.id)
     return user
+
+
+# Trilha obrigatória de onboarding: todo funcionário provisionado via SSO
+# entra nela no 1º acesso (regra Napel: novo funcionário = aluno automático).
+_MANDATORY_PATH_CODE = "ACAD"
+
+
+def _auto_enroll_mandatory(db: Session, user_id: int) -> None:
+    """Matricula o user nos cursos da trilha obrigatória. Idempotente, best-effort:
+    falha aqui nunca pode quebrar o login."""
+    try:
+        path = db.query(LearningPath).filter(LearningPath.code == _MANDATORY_PATH_CODE).first()
+        if not path:
+            return
+        rows = db.query(LearningPathCourse).filter(LearningPathCourse.path_id == path.id).all()
+        added = False
+        for r in rows:
+            exists = db.query(Enrollment).filter(
+                Enrollment.user_id == user_id, Enrollment.course_id == r.course_id).first()
+            if not exists:
+                db.add(Enrollment(user_id=user_id, course_id=r.course_id, role="Estudante"))
+                added = True
+        if added:
+            db.commit()
+    except Exception:
+        db.rollback()
 
 
 def hash_password(plain: str) -> str:
