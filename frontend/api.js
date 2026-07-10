@@ -1612,7 +1612,7 @@ async function bootstrapAfterLogin(user) {
   await handleRoute();
 }
 
-window.addEventListener("DOMContentLoaded", async () => {
+async function _lmsBootstrap() {
   injectLoginModal();
   const token = getToken();
   if (!token) { showLoginModal(); return; }
@@ -1626,7 +1626,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     clearAuth();
     showLoginModal();
   }
-});
+}
+// Defensivo: DOMContentLoaded pode já ter disparado (iframe recém-carregado,
+// script no final do body). Se DOM já está pronto, roda direto.
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", _lmsBootstrap);
+} else {
+  _lmsBootstrap();
+}
 
 window.addEventListener("hashchange", handleRoute);
 window.doLogout = doLogout;
