@@ -390,16 +390,29 @@ def my_resume(db: Session = Depends(get_db), user: User = Depends(current_user))
                     "course_id": course.id, "course_name": course.name, "course_pct": pct,
                 }
 
-    # 2) Sem progress: primeira aula da matrícula mais recente
-    enr = db.query(Enrollment).filter(Enrollment.user_id == user.id).order_by(Enrollment.enrolled_at.desc()).first()
-    if enr:
-        nxt = _next_unit_of(enr.course_id)
-        if nxt:
-            course = db.query(Course).get(enr.course_id)
-            return {
-                "unit_id": nxt.id, "unit_title": nxt.title, "unit_type": nxt.type, "unit_section": nxt.section, "duration_min": nxt.duration_min,
-                "course_id": course.id, "course_name": course.name, "course_pct": 0,
-            }
+    # 2) Sem progress: começa pela 1ª aula do 1º curso na sequência da trilha.
+    #    (enrolled_at.desc pegava o último curso matriculado — no bulk-enroll, o Avançado)
+    enrolled_ids = [e.course_id for e in db.query(Enrollment).filter(Enrollment.user_id == user.id).all()]
+    if enrolled_ids:
+        # ordena pelos cursos da trilha (order_index); cursos fora de trilha vão ao fim por id
+        path_rows = (db.query(LearningPathCourse)
+                     .filter(LearningPathCourse.course_id.in_(enrolled_ids))
+                     .order_by(LearningPathCourse.order_index).all())
+        ordered, seen = [], set()
+        for r in path_rows:
+            if r.course_id not in seen:
+                ordered.append(r.course_id); seen.add(r.course_id)
+        for cid in sorted(enrolled_ids):
+            if cid not in seen:
+                ordered.append(cid); seen.add(cid)
+        for cid in ordered:
+            nxt = _next_unit_of(cid)
+            if nxt:
+                course = db.query(Course).get(cid)
+                return {
+                    "unit_id": nxt.id, "unit_title": nxt.title, "unit_type": nxt.type, "unit_section": nxt.section, "duration_min": nxt.duration_min,
+                    "course_id": course.id, "course_name": course.name, "course_pct": compute_course_progress(db, user.id, cid),
+                }
     return None
 
 
