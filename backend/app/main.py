@@ -1382,7 +1382,11 @@ def activity_feed(limit: int = 30, offset: int = 0, kind: Optional[str] = None, 
     for pr in q_prog.all():
         u = db.query(User).get(pr.user_id); unit = db.query(Unit).get(pr.unit_id)
         if not u or not unit: continue
-        events.append({"ts": pr.completed_at, "kind": "unit_completed", "text": f'concluiu "{unit.title}"', **_actor(u)})
+        ev = {"ts": pr.completed_at, "kind": "unit_completed", "text": f'concluiu "{unit.title}"', **_actor(u)}
+        if unit.type == "quiz" and pr.score is not None:
+            ev["score_pct"] = pr.score
+            ev["text"] = f'concluiu "{unit.title}" com {pr.score}%'
+        events.append(ev)
 
     q_quiz = db.query(QuizAttempt).filter(QuizAttempt.passed == True)
     if user_id: q_quiz = q_quiz.filter(QuizAttempt.user_id == user_id)
