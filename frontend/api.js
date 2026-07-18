@@ -556,7 +556,7 @@ async function renderDashboard() {
       const iconByType = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", assignment: "clipboard-check" };
       const secLine = resume.unit_section ? escapeHtml(resume.unit_section) + " · " : "";
       const html = `
-        <div id="dash-resume-card" class="rounded-lg p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-md cursor-pointer" style="background:linear-gradient(135deg,#113C58,#7DA4C6);color:white" onclick="location.hash='#/unit-player?course=${resume.course_id}&unit=${resume.unit_id}'">
+        <div id="dash-resume-card" data-widget-id="resume" class="rounded-lg p-5 mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-md cursor-pointer" style="background:linear-gradient(135deg,#113C58,#7DA4C6);color:white" onclick="location.hash='#/unit-player?course=${resume.course_id}&unit=${resume.unit_id}'">
           <div class="flex-1 min-w-0">
             <div class="text-[10px] font-bold uppercase tracking-widest opacity-80">Continue de onde parou</div>
             <div class="text-lg font-bold mt-1 truncate">${escapeHtml(resume.unit_title)}</div>
@@ -678,8 +678,111 @@ async function renderDashboard() {
       }
     }
 
+    applyWidgetVisibility();
+    await populateOptionalHomeWidgets();
     rerunLucide();
   } catch (e) { console.error("[dashboard]", e); }
+}
+
+/* ============ HOME WIDGETS — adicionar (Onda 2 — item 2.4) ============ */
+const HOME_WIDGET_CATALOG = [
+  { id: "resume", label: "Continue de onde parou" },
+  { id: "activity-chart", label: "Atividade no portal" },
+  { id: "quick-actions", label: "Ações rápidas" },
+  { id: "leaderboard", label: "Ranking top 5" },
+  { id: "timeline", label: "Cronologia" },
+  { id: "my-courses", label: "Meus cursos ativos" },
+  { id: "recent-quizzes", label: "Provas recentes" },
+];
+const HOME_WIDGETS_KEY = "lms.home.widgets";
+// widgets que já apareciam na Home antes desta feature — seed do 1º load (nunca somem por engano)
+const HOME_DEFAULT_VISIBLE = ["resume", "activity-chart", "quick-actions", "leaderboard", "timeline"];
+
+function getVisibleWidgetIds() {
+  const raw = localStorage.getItem(HOME_WIDGETS_KEY);
+  if (raw === null) {
+    localStorage.setItem(HOME_WIDGETS_KEY, JSON.stringify(HOME_DEFAULT_VISIBLE));
+    return HOME_DEFAULT_VISIBLE.slice();
+  }
+  try { return JSON.parse(raw); } catch { return HOME_DEFAULT_VISIBLE.slice(); }
+}
+function setVisibleWidgetIds(ids) { localStorage.setItem(HOME_WIDGETS_KEY, JSON.stringify(ids)); }
+
+function applyWidgetVisibility() {
+  const visible = new Set(getVisibleWidgetIds());
+  const catalogIds = new Set(HOME_WIDGET_CATALOG.map(w => w.id));
+  $$("#page-dashboard [data-widget-id]").forEach(el => {
+    const id = el.dataset.widgetId;
+    // widgets fora do catálogo (kpi-overview, top-courses) são "core" — sempre aparecem
+    if (!catalogIds.has(id)) return;
+    el.style.display = visible.has(id) ? "" : "none";
+  });
+}
+
+async function populateOptionalHomeWidgets() {
+  try {
+    const myCoursesBody = document.querySelector('[data-widget-id="my-courses"] .widget-body');
+    if (myCoursesBody) {
+      const [enrollments, allCourses] = await Promise.all([
+        api("/api/users/me/enrollments"), api("/api/courses"),
+      ]);
+      const courseMap = Object.fromEntries(allCourses.map(c => [c.id, c]));
+      const active = enrollments.filter(e => !e.completed_at).sort((a, b) => b.progress_pct - a.progress_pct).slice(0, 5);
+      myCoursesBody.innerHTML = active.length === 0
+        ? `<div class="p-6 text-center text-xs text-slate-400">Nenhum curso em andamento.</div>`
+        : active.map((e, i) => {
+            const c = courseMap[e.course_id]; if (!c) return "";
+            return `<div class="py-3 ${i < active.length - 1 ? "border-b border-slate-100" : ""}">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-naval flex-1 pr-2 line-clamp-1">${escapeHtml(c.name)}</div>
+                <span class="text-xs text-slate-500 font-semibold">${e.progress_pct}%</span>
+              </div>
+              <div class="progress-bar"><div class="progress-bar-fill" style="width: ${e.progress_pct}%"></div></div>
+            </div>`;
+          }).join("");
+    }
+    const quizzesBody = document.querySelector('[data-widget-id="recent-quizzes"] .widget-body');
+    if (quizzesBody) {
+      const attempts = await api(`/api/users/${state.user.id}/quiz-attempts`).catch(() => []);
+      const recent = attempts.slice(0, 5);
+      quizzesBody.innerHTML = recent.length === 0
+        ? `<div class="p-6 text-center text-xs text-slate-400">Sem provas recentes.</div>`
+        : recent.map((a, i) => `
+          <div class="py-3 flex items-center justify-between ${i < recent.length - 1 ? "border-b border-slate-100" : ""}">
+            <div class="min-w-0 flex-1 pr-2">
+              <div class="text-sm font-medium text-naval line-clamp-1">${escapeHtml(a.unit_title || "Quiz")}</div>
+              <div class="text-xs text-slate-400">${escapeHtml(a.course_name || "")}</div>
+            </div>
+            <span class="badge ${a.passed ? "badge-success" : "badge-danger"}">${a.score_pct}%</span>
+          </div>`).join("");
+    }
+  } catch (e) { console.error("[home-widgets]", e); }
+}
+
+function openWidgetPickerModal() {
+  const visible = new Set(getVisibleWidgetIds());
+  const resumeActive = visible.has("resume") && !!document.getElementById("dash-resume-card");
+  const rows = HOME_WIDGET_CATALOG.map(w => {
+    const checked = visible.has(w.id);
+    const disabled = w.id === "resume" && resumeActive;
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #E4EEF3;${disabled ? "opacity:.55" : ""}">
+      <input type="checkbox" class="widget-pick-cb" value="${w.id}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} style="width:16px;height:16px">
+      <span style="font-size:14px;color:#113C58;font-weight:500">${escapeHtml(w.label)}</span>
+    </label>`;
+  }).join("");
+  showModal({
+    title: "Adicionar widget",
+    bodyHtml: `<div>${rows}</div>`,
+    okText: "Adicionar selecionados",
+    onOk: async () => {
+      const ids = $$(".widget-pick-cb").filter(cb => cb.checked).map(cb => cb.value);
+      setVisibleWidgetIds(ids);
+      applyWidgetVisibility();
+      await populateOptionalHomeWidgets();
+      rerunLucide();
+      toast("Widgets atualizados ✓");
+    },
+  });
 }
 
 /* ============ COURSES LIST ============ */
