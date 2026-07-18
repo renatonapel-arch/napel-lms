@@ -1,20 +1,22 @@
-from datetime import datetime
+import secrets
+import time
+from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-from . import models, schemas
+from . import models, schemas, emails
 from .config import settings
 from .db import get_db, engine, Base, SessionLocal
 from .auth import (
     current_user, require_admin, make_token, verify_password, hash_password,
-    make_refresh_token, consume_refresh_token, revoke_refresh_token,
+    make_refresh_token, consume_refresh_token, revoke_refresh_token, revoke_all_user_refresh_tokens,
 )
 from .models import (
     User, Course, Unit, Enrollment, Progress, Badge, UserBadge, Certificate, Category,
     GroupUser, GroupCourse, QuizAttempt, Setting, LearningPath, LearningPathCourse, PathCertificate,
-    RefreshToken,
+    RefreshToken, PasswordResetToken,
 )
 
 # garante tabelas existem (idempotente em prod)
@@ -146,6 +148,81 @@ def logout(data: schemas.LogoutIn, db: Session = Depends(get_db)):
     prova posse, e revogar um token que não é seu não tem efeito (não vaza nada)."""
     if data.refresh_token:
         revoke_refresh_token(db, data.refresh_token)
+    return {"status": "ok"}
+
+
+# ============ ESQUECI MINHA SENHA (Onda 6 — item 6.2) ============
+# OPUS_REVIEW: rate limit em memória (por processo) — reseta a cada deploy/restart e não
+# é compartilhado entre múltiplas réplicas. Suficiente pra uma demo com 1 instância; numa
+# escala maior isso precisaria ir pro Redis/DB.
+_FORGOT_PW_WINDOW_SEC = 3600
+_FORGOT_PW_MAX_PER_IP = 5
+_forgot_pw_attempts: dict[str, list[float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    # OPUS_REVIEW: confia em X-Forwarded-For sem lista de proxies confiáveis — atrás do
+    # Traefik da própria VPS isso é ok, mas um client poderia forjar o header se o proxy
+    # não sobrescrevê-lo. Aceitável pro rate-limit "sensato" pedido — não é a única defesa
+    # (resposta genérica também evita enumeração de e-mail).
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _check_forgot_password_rate_limit(ip: str) -> None:
+    now = time.time()
+    hist = [t for t in _forgot_pw_attempts.get(ip, []) if now - t < _FORGOT_PW_WINDOW_SEC]
+    if len(hist) >= _FORGOT_PW_MAX_PER_IP:
+        raise HTTPException(429, "Muitas tentativas. Tente novamente mais tarde.")
+    hist.append(now)
+    _forgot_pw_attempts[ip] = hist
+
+
+_FORGOT_PW_GENERIC_MSG = {"status": "ok", "message": "Se este e-mail existir, você receberá instruções em breve."}
+
+
+@app.post("/api/auth/forgot-password")
+def forgot_password(data: schemas.ForgotPasswordIn, request: Request, db: Session = Depends(get_db)):
+    """Sempre devolve 200 genérico — NUNCA revela se o e-mail existe (evita enumeração de contas).
+    OPUS_REVIEW: geração do token é secrets.token_urlsafe(32) (256 bits) com TTL de 30min;
+    tempo de resposta varia entre 'usuário existe' (faz hash/commit/envia e-mail) e 'não existe'
+    (retorna na hora) — um side-channel de timing residual, fora de escopo pra uma demo interna."""
+    _check_forgot_password_rate_limit(_client_ip(request))
+    email = (data.email or "").strip().lower()
+    if not email:
+        return _FORGOT_PW_GENERIC_MSG
+    user = db.query(User).filter(User.email == email).first()
+    if not user or user.status != "active":
+        return _FORGOT_PW_GENERIC_MSG
+    token = secrets.token_urlsafe(32)
+    prt = PasswordResetToken(user_id=user.id, token=token, expires_at=datetime.utcnow() + timedelta(minutes=30))
+    db.add(prt)
+    db.commit()
+    link = f"https://lms.demos.napel.com.br/#/reset-password?token={token}"
+    subject, html = emails.reset_password_email(f"{user.name} {user.surname}".strip(), link)
+    emails.send_email_async(user.email, subject, html)
+    prt.email_sent_at = datetime.utcnow()
+    db.commit()
+    return _FORGOT_PW_GENERIC_MSG
+
+
+@app.post("/api/auth/reset-password")
+def reset_password(data: schemas.ResetPasswordIn, db: Session = Depends(get_db)):
+    prt = db.query(PasswordResetToken).filter(PasswordResetToken.token == data.token).first()
+    if not prt or prt.used or prt.expires_at < datetime.utcnow():
+        raise HTTPException(400, "Token inválido ou expirado")
+    if len(data.new_password) < 8 or not any(c.isdigit() for c in data.new_password):
+        raise HTTPException(400, "A nova senha precisa ter ao menos 8 caracteres e 1 número")
+    user = db.query(User).filter(User.id == prt.user_id).first()
+    if not user:
+        raise HTTPException(400, "usuário não encontrado")
+    user.password_hash = hash_password(data.new_password)
+    prt.used = True
+    db.commit()
+    # invalida qualquer sessão antiga — força novo login em todos os dispositivos
+    revoke_all_user_refresh_tokens(db, user.id)
     return {"status": "ok"}
 
 

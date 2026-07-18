@@ -30,6 +30,16 @@ class LogoutIn(BaseModel):
     refresh_token: Optional[str] = None
 
 
+# === esqueci minha senha (Onda 6 — item 6.2) ===
+class ForgotPasswordIn(BaseModel):
+    email: str
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str
+
+
 # === user ===
 class UserOut(BaseModel):
     id: int

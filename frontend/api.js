@@ -244,6 +244,75 @@ function openForgotPasswordModal() {
     },
   });
 }
+
+// Onda 6 — item 6.2: página #/reset-password?token=X — rota pública, acessada via link de e-mail.
+function _validateNewPassword(pw) {
+  if (pw.length < 8) return "a senha precisa ter ao menos 8 caracteres";
+  if (!/\d/.test(pw)) return "a senha precisa ter ao menos 1 número";
+  return null;
+}
+
+async function renderResetPasswordPage() {
+  const zone = document.getElementById("reset-password-content");
+  if (!zone) return;
+  const qs = new URLSearchParams((location.hash.split("?")[1] || ""));
+  const token = qs.get("token");
+  if (!token) {
+    zone.innerHTML = `<div style="text-align:center;color:#64748B;font-size:14px">Link inválido — faltou o token. Solicite um novo link em "Esqueci minha senha".</div>`;
+    return;
+  }
+  zone.innerHTML = `
+    <form id="reset-pw-form" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin-bottom:4px">Nova senha</label>
+        <input id="reset-pw-new" type="password" required autocomplete="new-password"
+               style="width:100%;padding:10px 12px;border:1px solid #CFDEE7;border-radius:6px;font-size:14px">
+        <div style="font-size:11px;color:#94A3B8;margin-top:3px">Mínimo 8 caracteres, com pelo menos 1 número</div>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin-bottom:4px">Confirmar nova senha</label>
+        <input id="reset-pw-confirm" type="password" required autocomplete="new-password"
+               style="width:100%;padding:10px 12px;border:1px solid #CFDEE7;border-radius:6px;font-size:14px">
+      </div>
+      <div id="reset-pw-err" style="display:none;background:#FEE2E2;color:#991B1B;border:1px solid #EF4444;border-radius:6px;padding:8px 12px;font-size:13px"></div>
+      <button type="submit" id="reset-pw-btn"
+              style="background:#113C58;color:white;font-weight:600;padding:12px;border-radius:6px;border:none;cursor:pointer;font-size:14px;margin-top:8px">
+        Redefinir senha
+      </button>
+    </form>`;
+  document.getElementById("reset-pw-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("reset-pw-btn");
+    const errBox = document.getElementById("reset-pw-err");
+    errBox.style.display = "none";
+    const pw = document.getElementById("reset-pw-new").value;
+    const confirm = document.getElementById("reset-pw-confirm").value;
+    const invalid = _validateNewPassword(pw);
+    if (invalid) { errBox.textContent = invalid; errBox.style.display = "block"; return; }
+    if (pw !== confirm) { errBox.textContent = "as senhas não coincidem"; errBox.style.display = "block"; return; }
+    btn.disabled = true; btn.textContent = "Salvando…";
+    try {
+      const r = await fetch(`${API_BASE}/api/auth/reset-password`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, new_password: pw }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ detail: "erro" }));
+        throw new Error(err.detail || "não foi possível redefinir a senha");
+      }
+      clearAuth();  // qualquer sessão local antiga também é limpa aqui
+      location.hash = "#/dashboard";
+      toast("Senha alterada com sucesso — faça login com a nova senha");
+      showLoginModal();
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.style.display = "block";
+    } finally {
+      btn.disabled = false; btn.textContent = "Redefinir senha";
+    }
+  });
+}
+
 // Detecta se está embarcado como iframe (dentro do Clavis). Dentro do Clavis
 // NUNCA mostramos o form de login demo — pedimos um token fresco ao pai (SSO).
 const inIframe = (() => { try { return window.self !== window.top; } catch (_) { return true; } })();
@@ -2441,8 +2510,19 @@ const routes = {
   "activity": () => renderActivity(true),
   "notifications": renderNotificationsPage,
   "messages": renderMessagesPage,
+  "reset-password": renderResetPasswordPage,   // Onda 6 — item 6.2: rota pública (sem login)
 };
+// Rotas acessíveis sem sessão ativa (ex: link de e-mail "esqueci minha senha")
+const PUBLIC_ROUTES = new Set(["reset-password"]);
+
 async function handleRoute() {
+  const routeName = (location.hash || "#/dashboard").replace("#/", "").split("?")[0];
+  if (PUBLIC_ROUTES.has(routeName)) {
+    hideLoginModal();
+    showPage(routeName);
+    try { await routes[routeName](); } catch (e) { console.error("[route]", e); }
+    return;
+  }
   // Sem token = não autenticado → login (fallback p/ acesso standalone fora do Clavis).
   if (!getToken()) { showLoginModal(); return; }
   // Token presente mas user ainda não carregado: corrida com o bootstrap

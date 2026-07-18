@@ -2103,6 +2103,17 @@ tailwind.config = {
       </div>
     </section>
 
+    <!-- ================== RESET DE SENHA (Onda 6 — item 6.2) — rota pública ================== -->
+    <section id="page-reset-password" class="page">
+      <div style="max-width:420px;margin:48px auto;background:white;border:1px solid #E4EEF3;border-radius:12px;padding:32px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:28px;font-weight:800;color:#113C58;letter-spacing:0.05em">NAPEL <span style="font-size:14px;color:#7DA4C6">LMS</span></div>
+          <div style="font-size:13px;color:#64748B;margin-top:4px">Criar nova senha</div>
+        </div>
+        <div id="reset-password-content"></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- footer minimal -->
@@ -2112,7 +2123,7 @@ tailwind.config = {
 </div>
 
 <script>
-  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account', 'paths', 'path-detail', 'activity', 'help', 'notifications', 'messages'];
+  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account', 'paths', 'path-detail', 'activity', 'help', 'notifications', 'messages', 'reset-password'];
 
   function showPage(name) {
     const target = pages.includes(name) ? name : 'dashboard';
@@ -2183,7 +2194,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=44"></script>
+<script src="api.js?v=45"></script>
 <script src="actions.js?v=21"></script>
 </body>
 </html>
