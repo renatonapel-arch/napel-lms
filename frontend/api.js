@@ -935,9 +935,21 @@ async function renderLeaderboard() {
 }
 
 /* ============ MATRIX ============ */
-async function renderMatrix() {
+let matrixMode = "progress";
+async function renderMatrix(mode) {
+  if (mode) matrixMode = mode;
   try {
-    const data = await api("/api/reports/training-matrix");
+    const data = await api(`/api/reports/training-matrix?mode=${matrixMode}`);
+    // toggle Progresso × Notas
+    const toggleBtns = $$("#matrix-mode-toggle button");
+    toggleBtns.forEach(b => {
+      const active = b.dataset.mode === matrixMode;
+      b.classList.toggle("bg-white", active);
+      b.classList.toggle("shadow-sm", active);
+      b.classList.toggle("text-naval", active);
+      b.classList.toggle("text-slate-500", !active);
+      if (!b.dataset.mbound) { b.dataset.mbound = "1"; b.addEventListener("click", () => renderMatrix(b.dataset.mode)); }
+    });
     // subtítulo dinâmico
     const subtitle = $("#page-matrix h1 + p");
     if (subtitle) subtitle.textContent = `Visão pivot · ${data.users.length} ${data.users.length === 1 ? "utilizador" : "utilizadores"} × ${data.courses.length} ${data.courses.length === 1 ? "curso" : "cursos"}`;
@@ -977,10 +989,22 @@ async function renderMatrix() {
       if (raw === "in_progress" || raw === "started") return { status: "in_progress", pct: 50 };
       return { status: "not_started", pct: 0 };
     };
+    const scoreCellHtml = (uid, cid) => {
+      const raw = data.cells[uid] ? data.cells[uid][cid] : null;
+      const score = raw ? raw.score : null;
+      if (score === null || score === undefined)
+        return `<td><div class="matrix-cell empty" title="Sem tentativa"></div></td>`;
+      if (score >= 70)
+        return `<td><div class="matrix-cell completed" title="Nota: ${score}%" style="font-size:10px;font-weight:800;color:white">${score}%</div></td>`;
+      if (score >= 50)
+        return `<td><div class="matrix-cell in-progress" title="Nota: ${score}%" style="font-size:10px;font-weight:800;color:#92400E">${score}%</div></td>`;
+      return `<td><div class="matrix-cell failed" title="Nota: ${score}%" style="font-size:10px;font-weight:800">${score}%</div></td>`;
+    };
     tbody.innerHTML = data.users.map(u => `
       <tr>
         <td class="user-cell" ${u.id === state.user.id ? 'style="background:#EBF7FA"' : ""}>${escapeHtml(u.name)} ${u.id === state.user.id ? '<span class="badge badge-success text-[9px]">VOCÊ</span>' : ""}</td>
         ${data.courses.map(c => {
+          if (matrixMode === "scores") return scoreCellHtml(u.id, c.id);
           const cell = cellOf(u.id, c.id);
           if (cell.status === "completed")
             return `<td><div class="matrix-cell completed" title="Concluído (100%)"><i data-lucide="check" class="w-4 h-4"></i></div></td>`;
@@ -992,33 +1016,35 @@ async function renderMatrix() {
     // contagem footer
     const counter = $$("#page-matrix .border-t.border-borderd.p-3 .text-slate-500")[1];
     if (counter) counter.textContent = `${data.users.length} utilizadores · ${data.courses.length} cursos`;
-    // KPI cards reais
-    const totalCells = data.users.length * data.courses.length;
-    let completedN = 0;
-    const userScores = {};
-    const courseEng = {};
-    for (const u of data.users) {
-      userScores[u.id] = 0;
-      for (const c of data.courses) {
-        if (!(c.id in courseEng)) courseEng[c.id] = { started: 0, name: c.name };
-        const cell = cellOf(u.id, c.id);
-        if (cell.status === "completed") { completedN++; userScores[u.id]++; courseEng[c.id].started++; }
-        else if (cell.status === "in_progress") courseEng[c.id].started++;
+    // KPI cards reais (só fazem sentido no modo progresso — no modo notas mantém o último valor)
+    if (matrixMode === "progress") {
+      const totalCells = data.users.length * data.courses.length;
+      let completedN = 0;
+      const userScores = {};
+      const courseEng = {};
+      for (const u of data.users) {
+        userScores[u.id] = 0;
+        for (const c of data.courses) {
+          if (!(c.id in courseEng)) courseEng[c.id] = { started: 0, name: c.name };
+          const cell = cellOf(u.id, c.id);
+          if (cell.status === "completed") { completedN++; userScores[u.id]++; courseEng[c.id].started++; }
+          else if (cell.status === "in_progress") courseEng[c.id].started++;
+        }
       }
-    }
-    const overallPct = totalCells ? Math.round(completedN * 100 / totalCells) : 0;
-    const topUserId = Object.keys(userScores).sort((a, b) => userScores[b] - userScores[a])[0];
-    const topUser = data.users.find(u => u.id == topUserId);
-    const topPct = topUser ? Math.round(userScores[topUserId] * 100 / data.courses.length) : 0;
-    const overdue = data.users.filter(u => userScores[u.id] === 0).length;
-    const leastCourse = Object.values(courseEng).sort((a, b) => a.started - b.started)[0];
+      const overallPct = totalCells ? Math.round(completedN * 100 / totalCells) : 0;
+      const topUserId = Object.keys(userScores).sort((a, b) => userScores[b] - userScores[a])[0];
+      const topUser = data.users.find(u => u.id == topUserId);
+      const topPct = topUser ? Math.round(userScores[topUserId] * 100 / data.courses.length) : 0;
+      const overdue = data.users.filter(u => userScores[u.id] === 0).length;
+      const leastCourse = Object.values(courseEng).sort((a, b) => a.started - b.started)[0];
 
-    const kpiCards = $$("#page-matrix .grid.grid-cols-2.lg\\:grid-cols-4 .widget-body");
-    if (kpiCards.length >= 4) {
-      kpiCards[0].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Conclusão geral</div><div class="text-xl font-extrabold ${overallPct >= 70 ? "text-success-fg" : "text-naval"}">${overallPct}%</div><div class="text-[11px] text-slate-500 mt-0.5">${completedN} de ${totalCells} cél. concluídas</div>`;
-      kpiCards[1].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Top vendedor</div><div class="text-base font-bold text-naval line-clamp-1">${topUser ? escapeHtml(topUser.name) + " · " + topPct + "%" : "—"}</div><div class="text-[11px] text-slate-500 mt-0.5">${topUser ? userScores[topUserId] + " de " + data.courses.length + " cursos" : ""}</div>`;
-      kpiCards[2].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sem progresso</div><div class="text-xl font-extrabold ${overdue > 0 ? "text-warn-fg" : "text-success-fg"}">${overdue} ${overdue === 1 ? "user" : "users"}</div><div class="text-[11px] text-slate-500 mt-0.5">zero cursos concluídos</div>`;
-      kpiCards[3].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Curso menos engajado</div><div class="text-base font-bold text-naval line-clamp-1">${leastCourse ? escapeHtml(leastCourse.name.slice(0, 30)) : "—"}</div><div class="text-[11px] text-slate-500 mt-0.5">${leastCourse ? leastCourse.started + " de " + data.users.length + " iniciaram" : ""}</div>`;
+      const kpiCards = $$("#page-matrix .grid.grid-cols-2.lg\\:grid-cols-4 .widget-body");
+      if (kpiCards.length >= 4) {
+        kpiCards[0].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Conclusão geral</div><div class="text-xl font-extrabold ${overallPct >= 70 ? "text-success-fg" : "text-naval"}">${overallPct}%</div><div class="text-[11px] text-slate-500 mt-0.5">${completedN} de ${totalCells} cél. concluídas</div>`;
+        kpiCards[1].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Top vendedor</div><div class="text-base font-bold text-naval line-clamp-1">${topUser ? escapeHtml(topUser.name) + " · " + topPct + "%" : "—"}</div><div class="text-[11px] text-slate-500 mt-0.5">${topUser ? userScores[topUserId] + " de " + data.courses.length + " cursos" : ""}</div>`;
+        kpiCards[2].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sem progresso</div><div class="text-xl font-extrabold ${overdue > 0 ? "text-warn-fg" : "text-success-fg"}">${overdue} ${overdue === 1 ? "user" : "users"}</div><div class="text-[11px] text-slate-500 mt-0.5">zero cursos concluídos</div>`;
+        kpiCards[3].innerHTML = `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Curso menos engajado</div><div class="text-base font-bold text-naval line-clamp-1">${leastCourse ? escapeHtml(leastCourse.name.slice(0, 30)) : "—"}</div><div class="text-[11px] text-slate-500 mt-0.5">${leastCourse ? leastCourse.started + " de " + data.users.length + " iniciaram" : ""}</div>`;
+      }
     }
     rerunLucide();
   } catch (e) { console.error("[matrix]", e); }

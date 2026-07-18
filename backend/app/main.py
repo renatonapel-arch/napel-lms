@@ -1173,34 +1173,54 @@ def course_stats(course_id: int, db: Session = Depends(get_db), _: User = Depend
     }
 
 
+def _last_quiz_score(db: Session, user_id: int, course_id: int):
+    """Nota máxima entre as tentativas do último quiz (maior order_index) do curso. None se sem tentativa."""
+    last_quiz = db.query(Unit).filter(
+        Unit.course_id == course_id, Unit.type == "quiz"
+    ).order_by(Unit.order_index.desc()).first()
+    if not last_quiz:
+        return None
+    return db.query(func.max(QuizAttempt.score_pct)).filter(
+        QuizAttempt.user_id == user_id, QuizAttempt.unit_id == last_quiz.id
+    ).scalar()
+
+
 # ============ MATRIX ============
 @app.get("/api/reports/training-matrix")
-def training_matrix(db: Session = Depends(get_db), _: User = Depends(current_user)):
+def training_matrix(mode: str = "progress", db: Session = Depends(get_db), _: User = Depends(current_user)):
     users = db.query(User).filter(User.status == "active").order_by(User.name).all()
     courses = db.query(Course).filter(Course.status == "active").order_by(Course.created_at).all()
-    # 3 estados: 'completed' (concluído) · 'in_progress' (cursando, com pct) · 'not_started' (não iniciou)
     cells = {}
-    for u in users:
-        cells[u.id] = {}
-        for c in courses:
-            enroll = db.query(Enrollment).filter(
-                Enrollment.user_id == u.id, Enrollment.course_id == c.id
-            ).first()
-            if not enroll:
-                cells[u.id][c.id] = {"status": "not_started", "pct": 0}
-            elif enroll.completed_at:
-                cells[u.id][c.id] = {"status": "completed", "pct": 100}
-            else:
-                pct = compute_course_progress(db, u.id, c.id)
-                if pct <= 0:
-                    # matriculado mas não começou = ainda conta como "cursando" (0%), pois há matrícula
-                    cells[u.id][c.id] = {"status": "in_progress", "pct": 0}
+    if mode == "scores":
+        for u in users:
+            cells[u.id] = {}
+            for c in courses:
+                score = _last_quiz_score(db, u.id, c.id)
+                cells[u.id][c.id] = {"status": "scored" if score is not None else "no_attempt", "score": score}
+    else:
+        # 3 estados: 'completed' (concluído) · 'in_progress' (cursando, com pct) · 'not_started' (não iniciou)
+        for u in users:
+            cells[u.id] = {}
+            for c in courses:
+                enroll = db.query(Enrollment).filter(
+                    Enrollment.user_id == u.id, Enrollment.course_id == c.id
+                ).first()
+                if not enroll:
+                    cells[u.id][c.id] = {"status": "not_started", "pct": 0}
+                elif enroll.completed_at:
+                    cells[u.id][c.id] = {"status": "completed", "pct": 100}
                 else:
-                    cells[u.id][c.id] = {"status": "in_progress", "pct": pct}
+                    pct = compute_course_progress(db, u.id, c.id)
+                    if pct <= 0:
+                        # matriculado mas não começou = ainda conta como "cursando" (0%), pois há matrícula
+                        cells[u.id][c.id] = {"status": "in_progress", "pct": 0}
+                    else:
+                        cells[u.id][c.id] = {"status": "in_progress", "pct": pct}
     return {
         "users": [{"id": u.id, "name": f"{u.name} {u.surname}".strip(), "branch": u.branch} for u in users],
         "courses": [{"id": c.id, "name": c.name, "code": c.code} for c in courses],
         "cells": cells,
+        "mode": mode,
     }
 
 

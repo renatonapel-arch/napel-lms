@@ -1537,6 +1537,10 @@ tailwind.config = {
         <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
           <option>Todos os grupos</option><option>MGA (Maringá)</option><option>LEM (L. de Bauru)</option><option>PTA (Paranaguá)</option>
         </select>
+        <div id="matrix-mode-toggle" class="flex items-center bg-gelo rounded-md p-1 gap-1">
+          <button type="button" data-mode="progress" class="px-3 py-1.5 rounded text-xs font-semibold bg-white text-naval shadow-sm">Progresso</button>
+          <button type="button" data-mode="scores" class="px-3 py-1.5 rounded text-xs font-semibold text-slate-500">Notas</button>
+        </div>
         <div class="md:ml-auto text-xs text-slate-500 flex items-center gap-2">
           <i data-lucide="info" class="w-3.5 h-3.5"></i> Clique numa célula para abrir detalhes do progresso
         </div>
@@ -2128,7 +2132,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=26"></script>
+<script src="api.js?v=27"></script>
 <script src="actions.js?v=8"></script>
 </body>
 </html>
