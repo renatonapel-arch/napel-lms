@@ -862,15 +862,17 @@ async function openEditGroup(groupId) {
       fld("g-category", "Categoria", { value: g.category || "", choices: catChoices }) +
       fld("g-status", "Status", { value: g.status, choices: [{ value: "active", label: "Ativo" }, { value: "inactive", label: "Inativo" }] }) +
       `<label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin:14px 0 6px">Membros</label>
+      <input id="eg-user-search" type="search" placeholder="Filtrar utilizadores…" style="width:100%;padding:7px 10px;border:1px solid #CFDEE7;border-radius:6px;font-size:12px;margin-bottom:6px">
       <div style="max-height:180px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px;padding:6px">
-        ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
+        ${allUsers.map(u => `<label class="eg-user-row" data-name="${escapeHtml((u.name + " " + (u.surname || "") + " " + u.login).toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
           <input type="checkbox" class="g-user" value="${u.id}" ${memberSet.has(u.id) ? "checked" : ""}>
           <span>${escapeHtml(u.name)} ${escapeHtml(u.surname || "")} <span style="color:#94A3B8">(${escapeHtml(u.login)})</span></span>
         </label>`).join("")}
       </div>
       <label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin:14px 0 6px">Cursos atribuídos <span style="color:#94A3B8;font-weight:400">(membros são auto-matriculados)</span></label>
+      <input id="eg-course-search" type="search" placeholder="Filtrar cursos…" style="width:100%;padding:7px 10px;border:1px solid #CFDEE7;border-radius:6px;font-size:12px;margin-bottom:6px">
       <div style="max-height:160px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px;padding:6px">
-        ${allCourses.length === 0 ? '<div style="color:#94A3B8;font-size:12px;padding:6px">Sem cursos ativos.</div>' : allCourses.map(c => `<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
+        ${allCourses.length === 0 ? '<div style="color:#94A3B8;font-size:12px;padding:6px">Sem cursos ativos.</div>' : allCourses.map(c => `<label class="eg-course-row" data-name="${escapeHtml(c.name.toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
           <input type="checkbox" class="g-course" value="${c.id}" ${courseSet.has(c.id) ? "checked" : ""}>
           <span>${escapeHtml(c.name)}</span>
         </label>`).join("")}
@@ -889,6 +891,19 @@ async function openEditGroup(groupId) {
       if (typeof renderGroups === "function") await renderGroups();
     },
   });
+  // filtro ao vivo (mesmo padrão do modal de matrícula em lote)
+  setTimeout(() => {
+    const us = document.getElementById("eg-user-search");
+    if (us) us.oninput = (e) => {
+      const v = e.target.value.toLowerCase();
+      document.querySelectorAll(".eg-user-row").forEach(el => { el.style.display = el.dataset.name.includes(v) ? "flex" : "none"; });
+    };
+    const cs = document.getElementById("eg-course-search");
+    if (cs) cs.oninput = (e) => {
+      const v = e.target.value.toLowerCase();
+      document.querySelectorAll(".eg-course-row").forEach(el => { el.style.display = el.dataset.name.includes(v) ? "flex" : "none"; });
+    };
+  }, 100);
 }
 
 async function deleteGroup(groupId) {
