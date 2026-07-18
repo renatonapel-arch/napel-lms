@@ -429,40 +429,12 @@ async function renderDashboard() {
 }
 
 /* ============ COURSES LIST ============ */
-async function renderCourses() {
-  try {
-    coursesAllCache = null; // força o filtro a buscar dado fresco na próxima aplicação
-    const courses = await api("/api/courses");
-    const grid = $("#page-courses .grid.grid-cols-1");
-    if (!grid) return;
-    // popula dropdown de categoria com as categorias reais (uma vez só)
-    const catFilter = $("#courses-category-filter");
-    if (catFilter && !catFilter.dataset.populated) {
-      catFilter.dataset.populated = "1";
-      const cats = await api("/api/categories").catch(() => []);
-      catFilter.innerHTML = `<option>Todas as categorias</option>` + cats.map(c => `<option>${escapeHtml(c.name)}</option>`).join("");
-    }
-    // subtítulo dinâmico
-    const subtitle = $("#page-courses h1 + p");
-    if (subtitle) {
-      const active = courses.filter(c => c.status === "active").length;
-      const totalEnroll = courses.reduce((s, c) => s + c.enrollments_count, 0);
-      const completed = "—"; // sem endpoint específico de completed/mês ainda
-      subtitle.textContent = `${courses.length} ${courses.length === 1 ? "curso" : "cursos"} · ${active} ${active === 1 ? "ativo" : "ativos"} · ${totalEnroll} matrículas total`;
-    }
-    if (courses.length === 0) {
-      grid.innerHTML = `<div class="col-span-3 text-center py-16">
-        <i data-lucide="book-x" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i>
-        <h3 class="text-lg font-semibold text-naval mb-1">Nenhum curso ainda</h3>
-        <p class="text-sm text-slate-500 mb-5">Comece criando o primeiro curso pra equipe.</p>
-        <button data-action="create-course" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold">+ Adicionar curso</button>
-      </div>`;
-      const footerCount = $("#page-courses .border-t.border-borderd .text-sm.text-slate-500");
-      if (footerCount) footerCount.textContent = "Sem cursos cadastrados";
-      rerunLucide();
-      return;
-    }
-    grid.innerHTML = courses.map(c => `
+const COURSES_PAGE_SIZE = 9;
+let coursesPage = 1;
+
+// card único, reusado tanto no load inicial quanto no filtro (evita 2 templates divergindo)
+function courseCardHtml(c) {
+  return `
       <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="if(!event.target.closest('.card-menu'))location.hash='#/course-detail?id=${c.id}'">
         <div class="${thumbClass(c.thumbnail_seed)} aspect-video relative">
           <span class="absolute top-3 left-3 badge ${c.status === "active" ? "badge-success" : c.status === "draft" ? "badge-warn" : "badge-neutral"}">${c.status === "active" ? "Ativo" : c.status === "draft" ? "Rascunho" : "Arquivado"}</span>
@@ -485,11 +457,71 @@ async function renderCourses() {
           </div>
           <a href="#/course-detail?id=${c.id}" class="text-xs font-semibold text-naval flex items-center gap-1 hover:gap-2 transition-all">Ver curso <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
         </div>
-      </article>`).join("");
-    // footer count
-    const footerCount = $("#page-courses .border-t.border-borderd .text-sm.text-slate-500");
-    if (footerCount) footerCount.innerHTML = `Mostrando <strong class="text-naval">1–${courses.length}</strong> de <strong class="text-naval">${courses.length}</strong> cursos`;
+      </article>`;
+}
+
+// renderiza grid + contador + paginação pra uma lista já filtrada (client-side, PAGE_SIZE=9)
+function renderCoursesList(list) {
+  const grid = $("#page-courses .grid.grid-cols-1");
+  if (!grid) return;
+  const footerCount = $("#page-courses .border-t.border-borderd .text-sm.text-slate-500");
+  const pagerBox = $("#page-courses .border-t.border-borderd .flex.items-center.gap-1.ml-2");
+  if (list.length === 0) {
+    const noCoursesAtAll = !coursesAllCache || coursesAllCache.length === 0;
+    grid.innerHTML = noCoursesAtAll
+      ? `<div class="col-span-3 text-center py-16">
+          <i data-lucide="book-x" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i>
+          <h3 class="text-lg font-semibold text-naval mb-1">Nenhum curso ainda</h3>
+          <p class="text-sm text-slate-500 mb-5">Comece criando o primeiro curso pra equipe.</p>
+          <button data-action="create-course" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold">+ Adicionar curso</button>
+        </div>`
+      : `<div class="col-span-3 text-center py-12 text-slate-500"><i data-lucide="search-x" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><p>Nenhum curso encontrado com esses filtros.</p></div>`;
+    if (footerCount) footerCount.textContent = noCoursesAtAll ? "Sem cursos cadastrados" : "Nenhum curso encontrado";
+    if (pagerBox) pagerBox.innerHTML = "";
     rerunLucide();
+    return;
+  }
+  const totalPages = Math.max(1, Math.ceil(list.length / COURSES_PAGE_SIZE));
+  if (coursesPage > totalPages) coursesPage = totalPages;
+  if (coursesPage < 1) coursesPage = 1;
+  const start = (coursesPage - 1) * COURSES_PAGE_SIZE;
+  const pageItems = list.slice(start, start + COURSES_PAGE_SIZE);
+  grid.innerHTML = pageItems.map(courseCardHtml).join("");
+  if (footerCount) footerCount.innerHTML = `Mostrando <strong class="text-naval">${start + 1}–${start + pageItems.length}</strong> de <strong class="text-naval">${list.length}</strong> cursos`;
+  if (pagerBox) {
+    let html = `<button data-page-action="prev" ${coursesPage <= 1 ? "disabled" : ""} class="w-9 h-9 rounded-md border border-borderd text-naval hover:bg-gelo disabled:opacity-50 disabled:text-slate-400 disabled:hover:bg-transparent icon-only" aria-label="Anterior"><i data-lucide="chevron-left" class="w-4 h-4 mx-auto"></i></button>`;
+    for (let p = 1; p <= totalPages; p++) {
+      html += `<button data-page-action="${p}" class="w-9 h-9 rounded-md text-sm icon-only ${p === coursesPage ? "bg-naval text-white font-semibold" : "border border-borderd text-naval hover:bg-gelo"}">${p}</button>`;
+    }
+    html += `<button data-page-action="next" ${coursesPage >= totalPages ? "disabled" : ""} class="w-9 h-9 rounded-md border border-borderd text-naval hover:bg-gelo disabled:opacity-50 disabled:text-slate-400 disabled:hover:bg-transparent icon-only" aria-label="Próximo"><i data-lucide="chevron-right" class="w-4 h-4 mx-auto"></i></button>`;
+    pagerBox.innerHTML = html;
+  }
+  rerunLucide();
+}
+
+async function renderCourses() {
+  try {
+    coursesAllCache = null; // força o filtro a buscar dado fresco na próxima aplicação
+    coursesPage = 1;
+    const courses = await api("/api/courses");
+    coursesAllCache = courses;
+    const grid = $("#page-courses .grid.grid-cols-1");
+    if (!grid) return;
+    // popula dropdown de categoria com as categorias reais (uma vez só)
+    const catFilter = $("#courses-category-filter");
+    if (catFilter && !catFilter.dataset.populated) {
+      catFilter.dataset.populated = "1";
+      const cats = await api("/api/categories").catch(() => []);
+      catFilter.innerHTML = `<option>Todas as categorias</option>` + cats.map(c => `<option>${escapeHtml(c.name)}</option>`).join("");
+    }
+    // subtítulo dinâmico
+    const subtitle = $("#page-courses h1 + p");
+    if (subtitle) {
+      const active = courses.filter(c => c.status === "active").length;
+      const totalEnroll = courses.reduce((s, c) => s + c.enrollments_count, 0);
+      subtitle.textContent = `${courses.length} ${courses.length === 1 ? "curso" : "cursos"} · ${active} ${active === 1 ? "ativo" : "ativos"} · ${totalEnroll} matrículas total`;
+    }
+    renderCoursesList(courses);
   } catch (e) { console.error("[courses]", e); }
 }
 

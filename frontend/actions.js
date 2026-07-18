@@ -605,46 +605,26 @@ async function navUnit(direction) {
 
 /* ============ FILTROS DE CURSOS ============ */
 let coursesAllCache = null;
-async function applyCoursesFilter() {
-  if (!coursesAllCache) coursesAllCache = await api("/api/courses");
+function getFilteredCourses() {
+  if (!coursesAllCache) return [];
   const search = document.querySelector("#page-courses input[type=search]")?.value.toLowerCase() || "";
   const cat = document.getElementById("courses-category-filter")?.value || "";
   const status = document.querySelector("#page-courses select:nth-of-type(2)")?.value || "";
-  const filtered = coursesAllCache.filter(c => {
+  return coursesAllCache.filter(c => {
     if (search && !(c.name.toLowerCase().includes(search) || (c.code || "").toLowerCase().includes(search))) return false;
     if (cat && !cat.startsWith("Todas") && c.category !== cat) return false;
     if (status && !status.startsWith("Todos") && c.status !== status.toLowerCase()) return false;
     return true;
   });
-  // render filtered
-  const grid = document.querySelector("#page-courses .grid.grid-cols-1");
-  if (!grid) return;
-  if (filtered.length === 0) {
-    grid.innerHTML = `<div class="col-span-3 text-center py-12 text-slate-500"><i data-lucide="search-x" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><p>Nenhum curso encontrado com esses filtros.</p></div>`;
-  } else {
-    const html = filtered.map(c => courseCardHtml(c)).join("");
-    grid.innerHTML = html;
-  }
-  rerunLucide();
 }
-
-function courseCardHtml(c) {
-  const SEED_CLASS = ["skeleton-thumb","skeleton-thumb-2","skeleton-thumb-3","skeleton-thumb-4","skeleton-thumb-5"];
-  const tc = SEED_CLASS[(c.thumbnail_seed - 1) % 5] || "skeleton-thumb";
-  return `<article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="location.hash='#/course-detail?id=${c.id}'">
-    <div class="${tc} aspect-video relative">
-      <span class="absolute top-3 left-3 badge ${c.status === "active" ? "badge-success" : c.status === "draft" ? "badge-warn" : "badge-neutral"}">${c.status}</span>
-      <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="${escapeHtml(c.icon)}" class="w-14 h-14 text-white/80"></i></div>
-    </div>
-    <div class="p-4">
-      <div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">${escapeHtml(c.category)}${c.code ? " · " + escapeHtml(c.code) : ""}</div>
-      <h3 class="text-sm font-semibold text-naval mb-3 line-clamp-2 min-h-[40px]">${escapeHtml(c.name)}</h3>
-      <div class="flex items-center gap-3 text-xs text-slate-500 mb-3">
-        <span>${c.units_count} units</span><span>${c.enrollments_count} matriculados</span>
-      </div>
-      <a href="#/course-detail?id=${c.id}" class="text-xs font-semibold text-naval">Ver curso →</a>
-    </div>
-  </article>`;
+async function applyCoursesFilter() {
+  if (!coursesAllCache) coursesAllCache = await api("/api/courses");
+  coursesPage = 1; // toda mudança de filtro volta pra página 1
+  renderCoursesList(getFilteredCourses());
+}
+function goToCoursesPage(page) {
+  coursesPage = page;
+  renderCoursesList(getFilteredCourses());
 }
 
 /* ============ EXPORT CSV ============ */
@@ -951,6 +931,16 @@ document.addEventListener("click", async (e) => {
 document.addEventListener("click", e => {
   if (e.target.closest(".card-menu")) return;
   document.querySelectorAll(".card-menu > div:not(.hidden)").forEach(d => d.classList.add("hidden"));
+});
+
+// paginação de cursos (Anterior/Próxima/números)
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-page-action]");
+  if (!btn || btn.disabled) return;
+  const act = btn.dataset.pageAction;
+  if (act === "prev") return goToCoursesPage(coursesPage - 1);
+  if (act === "next") return goToCoursesPage(coursesPage + 1);
+  goToCoursesPage(parseInt(act));
 });
 
 // quiz: clique em opção
