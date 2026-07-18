@@ -902,6 +902,23 @@ def my_certificates(db: Session = Depends(get_db), user: User = Depends(current_
     return out
 
 
+@app.get("/api/users/{user_id}/certificates", response_model=List[schemas.CertificateOut])
+def user_certificates(user_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Espelho admin de /api/users/me/certificates — usado na aba Certificados do perfil (user-detail)."""
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(404, "user not found")
+    certs = db.query(Certificate).filter(Certificate.user_id == user_id).all()
+    out = []
+    for c in certs:
+        course = db.query(Course).get(c.course_id)
+        co = schemas.CertificateOut.model_validate(c)
+        co.course_name = course.name if course else "?"
+        co.user_name = f"{target.name} {target.surname}".strip()
+        out.append(co)
+    return out
+
+
 def _maybe_issue_certificate(db: Session, user_id: int, course_id: int):
     course = db.query(Course).get(course_id)
     if not course or not course.issue_certificate:

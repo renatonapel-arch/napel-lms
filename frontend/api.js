@@ -1194,7 +1194,26 @@ async function renderUserDetail() {
       }
     }
 
-    // troca de aba (Cursos / Provas — Certificados entra no item 4.5)
+    // aba Certificados (espelho admin de /api/users/me/certificates)
+    const certs = await api(`/api/users/${userId}/certificates`).catch(() => []);
+    if (tabs[2]) tabs[2].innerHTML = `<i data-lucide="award" class="w-4 h-4"></i> Certificados <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${certs.length}</span>`;
+    const certsZone = $("#user-certs-zone");
+    if (certsZone) {
+      if (certs.length === 0) {
+        certsZone.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="award" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><h3 class="text-sm font-semibold text-naval mb-1">Nenhum certificado emitido</h3></div>`;
+      } else {
+        certsZone.innerHTML = `<div class="bg-white border border-borderd rounded-lg overflow-hidden"><table class="data-table"><thead><tr>
+          <th>Curso</th><th>Emitido em</th><th>Código</th><th class="text-right">Ação</th>
+        </tr></thead><tbody>${certs.map(c => `<tr>
+            <td>${escapeHtml(c.course_name || "—")}</td>
+            <td>${new Date(c.issued_at).toLocaleDateString("pt-BR")}</td>
+            <td><code class="text-xs bg-gelo px-2 py-1 rounded text-slate-500">${escapeHtml(c.code)}</code></td>
+            <td class="text-right"><button data-action="view-certificate" data-id="${c.id}" class="px-3 py-1.5 bg-naval text-white rounded-md text-xs font-semibold">Baixar</button></td>
+          </tr>`).join("")}</tbody></table></div>`;
+      }
+    }
+
+    // troca de aba (Cursos / Provas / Certificados)
     if (!tabs[0]?.dataset.udBound) {
       tabs.forEach((t, i) => {
         t.dataset.udBound = "1";
@@ -1204,6 +1223,7 @@ async function renderUserDetail() {
           const coursesZone = $("#user-courses-zone");
           if (coursesZone) coursesZone.classList.toggle("hidden", i !== 0);
           if (provasZone) provasZone.classList.toggle("hidden", i !== 1);
+          if (certsZone) certsZone.classList.toggle("hidden", i !== 2);
         });
       });
     }
