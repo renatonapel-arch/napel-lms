@@ -463,10 +463,17 @@ async function renderCourses() {
       return;
     }
     grid.innerHTML = courses.map(c => `
-      <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="location.hash='#/course-detail?id=${c.id}'">
+      <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="if(!event.target.closest('.card-menu'))location.hash='#/course-detail?id=${c.id}'">
         <div class="${thumbClass(c.thumbnail_seed)} aspect-video relative">
           <span class="absolute top-3 left-3 badge ${c.status === "active" ? "badge-success" : c.status === "draft" ? "badge-warn" : "badge-neutral"}">${c.status === "active" ? "Ativo" : c.status === "draft" ? "Rascunho" : "Arquivado"}</span>
-          <button class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções" onclick="event.stopPropagation()"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+          <div class="card-menu absolute top-3 right-3">
+            <button class="w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções" onclick="this.nextElementSibling.classList.toggle('hidden')"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
+            <div class="hidden absolute right-0 top-full mt-1 w-40 bg-white border border-borderd rounded-md shadow-lg z-50 py-1 text-left">
+              <button data-action="edit-course" data-id="${c.id}" class="block w-full text-left px-4 py-2 text-sm text-naval hover:bg-gelo">Editar curso</button>
+              <button data-action="archive-course" data-id="${c.id}" class="block w-full text-left px-4 py-2 text-sm text-naval hover:bg-gelo">Arquivar</button>
+              <button data-action="duplicate-course" data-id="${c.id}" class="block w-full text-left px-4 py-2 text-sm text-naval hover:bg-gelo">Duplicar</button>
+            </div>
+          </div>
           <div class="absolute inset-0 flex items-center justify-center"><i data-lucide="${escapeHtml(c.icon)}" class="w-14 h-14 text-white/80 group-hover:scale-110 transition-transform"></i></div>
         </div>
         <div class="p-4">

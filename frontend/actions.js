@@ -143,7 +143,22 @@ async function openArchiveCourse(courseId) {
   try {
     await api(`/api/courses/${courseId}`, { method: "PATCH", body: JSON.stringify({ status: "archived" }) });
     toast("Curso arquivado");
-    location.hash = "#/courses";
+    if (location.hash.startsWith("#/courses") && typeof renderCourses === "function") await renderCourses();
+    else location.hash = "#/courses";
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+async function duplicateCourse(courseId) {
+  const c = await api(`/api/courses/${courseId}`);
+  const name = prompt("Nome do curso duplicado:", `${c.name} (cópia)`);
+  if (!name) return;
+  try {
+    await api("/api/courses", { method: "POST", body: JSON.stringify({
+      name, category: c.category, description: c.description, status: "draft",
+      thumbnail_seed: c.thumbnail_seed, icon: c.icon, sequential: c.sequential,
+    })});
+    toast("Curso duplicado ✓");
+    if (typeof renderCourses === "function") await renderCourses();
   } catch (e) { alert("Erro: " + e.message); }
 }
 
@@ -886,6 +901,7 @@ document.addEventListener("click", async (e) => {
   const act = t.dataset.action;
   const id = t.dataset.id ? parseInt(t.dataset.id) : null;
   e.preventDefault(); e.stopPropagation();
+  document.querySelectorAll(".card-menu > div:not(.hidden)").forEach(d => d.classList.add("hidden"));
   switch (act) {
     case "create-course": return openCreateCourse();
     case "create-user": return openCreateUser();
@@ -894,6 +910,7 @@ document.addEventListener("click", async (e) => {
     case "course-settings": return openCourseSettings(id || currentCourseIdFromHash());
     case "enroll-bulk": return openBulkEnrollModal(id || currentCourseIdFromHash());
     case "archive-course": return openArchiveCourse(id || currentCourseIdFromHash());
+    case "duplicate-course": return duplicateCourse(id || currentCourseIdFromHash());
     case "edit-unit": return openEditUnit(id);
     case "delete-unit": return deleteUnit(id);
     case "view-certificate": return window.open(`${API_BASE}/api/certificates/${id}/html`, "_blank");
@@ -928,6 +945,12 @@ document.addEventListener("click", async (e) => {
     case "activity-load-more": return renderActivity(false);
     case "placeholder": return toast("Em breve nesta demo. Por enquanto é só visual.", "info");
   }
+});
+
+// fecha o menu (⋮) dos cards de curso ao clicar fora dele
+document.addEventListener("click", e => {
+  if (e.target.closest(".card-menu")) return;
+  document.querySelectorAll(".card-menu > div:not(.hidden)").forEach(d => d.classList.add("hidden"));
 });
 
 // quiz: clique em opção
