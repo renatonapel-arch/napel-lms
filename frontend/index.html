@@ -13,6 +13,7 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 tailwind.config = {
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
@@ -37,6 +38,12 @@ tailwind.config = {
     }
   }
 }
+</script>
+<script>
+  // Aplica o tema salvo ANTES do primeiro paint (evita flash claro→escuro).
+  (function () {
+    try { if (localStorage.getItem('lms.theme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) {}
+  })();
 </script>
 <style>
   html { scroll-behavior: smooth; }
@@ -148,6 +155,19 @@ tailwind.config = {
   .reports-subnav .subnav-item { padding: 10px 16px; font-size: 13px; color: #64748B; white-space: nowrap; border-bottom: 2px solid transparent; cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; }
   .reports-subnav .subnav-item:hover { color: #113C58; }
   .reports-subnav .subnav-item.active { color: #113C58; border-color: #113C58; font-weight: 600; }
+
+  /* ===== Tema escuro — overrides das áreas principais (sidebar já é escura por padrão) ===== */
+  html.dark body { background: #0B1622; color: #CBD5E1; }
+  html.dark .bg-page, html.dark .bg-white { background-color: #16232E !important; }
+  html.dark .bg-gelo { background-color: #1B2A38 !important; }
+  html.dark .border-borderd, html.dark .border-borders { border-color: #24384A !important; }
+  html.dark .text-naval { color: #DCE7F0 !important; }
+  html.dark .text-slate-900 { color: #E2E8F0 !important; }
+  html.dark .text-slate-700, html.dark .text-slate-600, html.dark .text-slate-500, html.dark .text-slate-400 { color: #93A5B8 !important; }
+  html.dark .hover\:bg-gelo:hover { background-color: #1B2A38 !important; }
+  html.dark input, html.dark select, html.dark textarea { background-color: #1B2A38 !important; color: #E2E8F0 !important; }
+  html.dark .data-table thead { background-color: #1B2A38; }
+  html.dark .data-table tbody tr:hover { background-color: #1B2A38; }
 </style>
 </head>
 <body class="text-slate-900">
@@ -220,6 +240,9 @@ tailwind.config = {
     <button class="relative p-2.5 hover:bg-gelo rounded-md icon-only" aria-label="Notificações">
       <i data-lucide="bell" class="w-5 h-5 text-slate-600"></i>
       <span class="absolute top-2 right-2 w-2 h-2 bg-warn-bd rounded-full"></span>
+    </button>
+    <button onclick="toggleTheme()" class="relative p-2.5 hover:bg-gelo rounded-md icon-only" aria-label="Alternar tema claro/escuro">
+      <i data-lucide="moon" id="theme-toggle-icon" class="w-5 h-5 text-slate-600"></i>
     </button>
     <div class="flex items-center gap-3 pl-3 border-l border-borderd">
       <div class="text-right hidden md:block leading-tight">
@@ -2173,6 +2196,21 @@ tailwind.config = {
     bd.classList.toggle('open');
   }
 
+  function applyTheme(theme) {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    const icon = document.getElementById('theme-toggle-icon');
+    if (icon) {
+      icon.setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  function toggleTheme() {
+    const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+    localStorage.setItem('lms.theme', next);
+    applyTheme(next);
+  }
+
   function navigate(hash) {
     const name = (hash || '').replace('#/', '').split('?')[0];
     showPage(name);
@@ -2196,6 +2234,7 @@ tailwind.config = {
 
   window.addEventListener('hashchange', () => navigate(location.hash));
   window.addEventListener('DOMContentLoaded', () => {
+    applyTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     if (window.lucide) lucide.createIcons();
     if (!location.hash) location.hash = '#/dashboard';
     else navigate(location.hash);
