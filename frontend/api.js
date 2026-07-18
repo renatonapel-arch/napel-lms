@@ -857,23 +857,55 @@ async function renderAccountTab(tab) {
 }
 
 /* ============ LEADERBOARD PAGE ============ */
+let lbCoursesLoaded = false;
 async function renderLeaderboard() {
   try {
-    const rows = await api("/api/leaderboard");
+    // popula select de cursos 1x
+    const courseSel = $("#lb-filter-course");
+    if (courseSel && !lbCoursesLoaded) {
+      lbCoursesLoaded = true;
+      const courses = await api("/api/courses").catch(() => []);
+      courseSel.insertAdjacentHTML("beforeend", courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join(""));
+    }
+    // liga os 3 filtros 1x (cada troca re-renderiza)
+    ["lb-filter-course", "lb-filter-branch", "lb-filter-period"].forEach(id => {
+      const el = $(`#${id}`);
+      if (el && !el.dataset.bound) { el.dataset.bound = "1"; el.addEventListener("change", () => renderLeaderboard()); }
+    });
+    const qs = new URLSearchParams();
+    const courseF = $("#lb-filter-course")?.value || "";
+    const branchF = $("#lb-filter-branch")?.value || "";
+    const periodF = $("#lb-filter-period")?.value || "all";
+    if (courseF) qs.set("course_id", courseF);
+    if (branchF) qs.set("branch", branchF);
+    if (periodF) qs.set("period", periodF);
+    const rows = await api(`/api/leaderboard?${qs.toString()}`);
     // subtítulo dinâmico
     const subtitle = $("#page-leaderboard h1 + p");
     if (subtitle) subtitle.textContent = `${rows.length} ${rows.length === 1 ? "participante" : "participantes"} · pontuação acumulada`;
+    const podium = $("#page-leaderboard .grid.grid-cols-3");
+    const table = $("#page-leaderboard .bg-white.border.border-borderd.rounded-lg.overflow-hidden");
+    let emptyEl = $("#lb-empty-state");
     if (rows.length === 0) {
-      const podium = $("#page-leaderboard .grid.grid-cols-3");
-      if (podium) podium.outerHTML = `<div class="text-center py-16 bg-white border border-borderd rounded-lg"><i data-lucide="trophy" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i><h3 class="text-lg font-semibold text-naval mb-1">Sem ranking ainda</h3><p class="text-sm text-slate-500">Conforme alunos ganham pontos completando units e quizzes, o ranking aparece aqui.</p></div>`;
-      const table = $("#page-leaderboard .bg-white.border.border-borderd.rounded-lg.overflow-hidden");
+      if (podium) podium.style.display = "none";
       if (table) table.style.display = "none";
+      if (!emptyEl && podium) {
+        emptyEl = document.createElement("div");
+        emptyEl.id = "lb-empty-state";
+        emptyEl.className = "text-center py-16 bg-white border border-borderd rounded-lg";
+        podium.parentElement.insertBefore(emptyEl, podium);
+      }
+      if (emptyEl) {
+        emptyEl.style.display = "";
+        emptyEl.innerHTML = `<i data-lucide="trophy" class="w-16 h-16 mx-auto mb-3 text-slate-300"></i><h3 class="text-lg font-semibold text-naval mb-1">Sem ranking ainda</h3><p class="text-sm text-slate-500">Nenhum participante encontrado com esses filtros.</p>`;
+      }
       rerunLucide();
       return;
     }
+    if (emptyEl) emptyEl.style.display = "none";
+    if (table) table.style.display = "";
     if (rows.length < 3) {
       // pódio precisa de 3 — mostra só tabela
-      const podium = $("#page-leaderboard .grid.grid-cols-3");
       if (podium) podium.style.display = "none";
       const tbody = $("#page-leaderboard .data-table tbody");
       if (tbody) {
@@ -889,8 +921,8 @@ async function renderLeaderboard() {
       rerunLucide();
       return;
     }
-    const podium = $("#page-leaderboard .grid.grid-cols-3");
     if (podium) {
+      podium.style.display = "";
       podium.querySelectorAll(".text-xs.font-semibold.text-naval, .text-sm.font-bold.text-naval").forEach((el, idx) => {
         const positions = [1, 0, 2]; // visual: 2º | 1º | 3º
         const r = rows[positions[Math.floor(idx / 2)]];
@@ -913,9 +945,11 @@ async function renderLeaderboard() {
         if (initEl) initEl.textContent = top3[i].avatar_initials;
       });
     }
-    // tabela demais posições
+    // tabela demais posições (limpa se filtro deixou <=3, evita linhas antigas presas)
     const tbody = $("#page-leaderboard .data-table tbody");
-    if (tbody && rows.length > 3) {
+    if (tbody && rows.length <= 3) {
+      tbody.innerHTML = "";
+    } else if (tbody) {
       tbody.innerHTML = rows.slice(3).map(r => `
         <tr ${r.user_id === state.user.id ? 'class="bg-gelo"' : ""}>
           <td class="font-bold ${r.user_id === state.user.id ? "text-naval" : "text-slate-500"}">${r.rank}</td>

@@ -1141,11 +1141,22 @@ tailwind.config = {
           </h1>
           <p class="text-sm text-slate-500 mt-1">7 vendedores ativos · pontuação acumulada desde 2025-01</p>
         </div>
-        <div class="flex gap-2">
-          <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
-            <option>Total acumulado</option><option>Este mês</option><option>Esta semana</option><option>Hoje</option>
+        <div class="flex flex-wrap gap-2">
+          <select id="lb-filter-course" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+            <option value="">Todos os cursos</option>
           </select>
-          <button class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Filtrar"><i data-lucide="filter" class="w-4 h-4"></i></button>
+          <select id="lb-filter-branch" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+            <option value="">Todas as filiais</option>
+            <option value="MGA">MGA · Maringá</option>
+            <option value="LEM">LEM · L. de Bauru</option>
+            <option value="PTA">PTA · Paranaguá</option>
+          </select>
+          <select id="lb-filter-period" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+            <option value="all">Total acumulado</option>
+            <option value="month">Este mês</option>
+            <option value="week">Esta semana</option>
+            <option value="day">Hoje</option>
+          </select>
         </div>
       </div>
 
@@ -2132,7 +2143,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=27"></script>
+<script src="api.js?v=28"></script>
 <script src="actions.js?v=8"></script>
 </body>
 </html>

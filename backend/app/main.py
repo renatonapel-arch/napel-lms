@@ -732,9 +732,33 @@ def grant_badge_if_missing(db: Session, user_id: int, badge_name: str):
 
 
 # ============ LEADERBOARD ============
+def _users_active_since(db: Session, since: datetime) -> set:
+    """Ids de user com algum evento datado (login/unit/quiz/curso/badge) desde `since`.
+    Não há ledger de pontos por data — usado só pra decidir QUEM aparece no ranking por período."""
+    ids = set()
+    ids.update(r[0] for r in db.query(User.id).filter(User.last_login >= since).all())
+    ids.update(r[0] for r in db.query(Progress.user_id).filter(Progress.completed_at >= since).all())
+    ids.update(r[0] for r in db.query(QuizAttempt.user_id).filter(QuizAttempt.completed_at >= since).all())
+    ids.update(r[0] for r in db.query(Enrollment.user_id).filter(Enrollment.completed_at >= since).all())
+    ids.update(r[0] for r in db.query(UserBadge.user_id).filter(UserBadge.earned_at >= since).all())
+    return ids
+
+
 @app.get("/api/leaderboard", response_model=List[schemas.LeaderboardRow])
-def leaderboard(limit: int = 50, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    users = db.query(User).filter(User.status == "active").order_by(User.points.desc()).limit(limit).all()
+def leaderboard(limit: int = 50, course_id: Optional[int] = None, branch: Optional[str] = None,
+                period: Optional[str] = None, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    q = db.query(User).filter(User.status == "active")
+    if branch:
+        q = q.filter(User.branch == branch)
+    if course_id:
+        enrolled_ids = [r[0] for r in db.query(Enrollment.user_id).filter(Enrollment.course_id == course_id).all()]
+        q = q.filter(User.id.in_(enrolled_ids)) if enrolled_ids else q.filter(False)
+    if period in ("day", "week", "month"):
+        from datetime import timedelta as _td
+        delta = {"day": _td(days=1), "week": _td(days=7), "month": _td(days=30)}[period]
+        active_ids = _users_active_since(db, datetime.utcnow() - delta)
+        q = q.filter(User.id.in_(active_ids)) if active_ids else q.filter(False)
+    users = q.order_by(User.points.desc()).limit(limit).all()
     rows = []
     for rank, u in enumerate(users, start=1):
         badges_n = db.query(func.count(UserBadge.id)).filter(UserBadge.user_id == u.id).scalar() or 0
