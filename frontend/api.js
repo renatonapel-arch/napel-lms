@@ -256,9 +256,8 @@ function renderTopbar(user) {
         <button onclick="doLogout()" class="block w-full text-left px-4 py-2 text-sm text-danger-fg hover:bg-danger-bg">Sair</button>
       </div>
     </div>`;
-  // remove badge hardcoded de "Mensagens 3" (endpoint real ainda não plugado nesta wave)
-  document.querySelectorAll('.main-shifted header button[aria-label="Mensagens (3 não lidas)"] span').forEach(el => el.remove());
   refreshNotifBadge();
+  refreshMsgBadge();
   updateImpersonateBanner(user);
 }
 
@@ -347,6 +346,144 @@ async function renderNotificationsPage() {
 }
 
 bindDropdownOutsideClose("notif-btn", "notif-dropdown");
+
+/* ============ MENSAGENS (Onda 2 — item 2.2) ============ */
+const _msgCache = new Map();  // id -> mensagem (evita GET /api/messages/{id}, que não existe)
+function _cacheMessages(items) { items.forEach(m => _msgCache.set(m.id, m)); }
+
+async function toggleMsgDropdown() {
+  const dd = document.getElementById("msg-dropdown");
+  if (!dd) return;
+  const opening = dd.classList.contains("hidden");
+  document.getElementById("notif-dropdown")?.classList.add("hidden");
+  dd.classList.toggle("hidden");
+  if (opening) await loadMsgDropdown();
+}
+
+async function loadMsgDropdown() {
+  const dd = document.getElementById("msg-dropdown");
+  dd.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Carregando…</div>`;
+  const items = await api("/api/messages/me?box=inbox&limit=5").catch(() => []);
+  _cacheMessages(items);
+  const body = !items.length
+    ? `<div class="p-6 text-center text-xs text-slate-400"><i data-lucide="mail" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>Sem mensagens.</div>`
+    : `<div class="divide-y divide-slate-100">${items.map(m => `
+        <div class="flex items-start gap-3 p-3 hover:bg-gelo cursor-pointer ${m.read_at ? "" : "bg-gelo/60"}" onclick="openMessageModal(${m.id})">
+          ${avatarHtml(m.from_initials)}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-sm font-semibold text-naval truncate">${escapeHtml(m.from_name || "?")}</div>
+              <div class="text-[10px] text-slate-400 shrink-0">${relativeTime(m.created_at)}</div>
+            </div>
+            <div class="text-xs text-slate-600 truncate">${escapeHtml(m.subject || "(sem assunto)")}</div>
+            <div class="text-xs text-slate-400 truncate">${escapeHtml((m.body || "").slice(0, 40))}</div>
+          </div>
+          ${!m.read_at ? `<span class="w-2 h-2 rounded-full bg-naval mt-1.5 shrink-0"></span>` : ""}
+        </div>`).join("")}</div>`;
+  dd.innerHTML = body + `<div class="p-2 border-t border-borderd text-center"><a href="#/messages" onclick="document.getElementById('msg-dropdown').classList.add('hidden')" class="text-naval text-xs font-semibold hover:underline">Ver todas as mensagens</a></div>`;
+  rerunLucide();
+}
+
+async function openMessageModal(id) {
+  const m = _msgCache.get(id);
+  if (!m) return;
+  document.getElementById("msg-dropdown")?.classList.add("hidden");
+  if (!m.read_at && m.to_user_id === state.user.id) {
+    await api(`/api/messages/${id}/mark-read`, { method: "POST" }).catch(() => {});
+    m.read_at = new Date().toISOString();
+    refreshMsgBadge();
+  }
+  showModal({
+    title: m.subject || "(sem assunto)",
+    bodyHtml: `
+      <div class="text-xs text-slate-500 mb-3">De <strong class="text-naval">${escapeHtml(m.from_name || "?")}</strong> · ${new Date(m.created_at).toLocaleString("pt-BR")}</div>
+      <div class="text-sm text-slate-700 whitespace-pre-wrap mb-4">${escapeHtml(m.body)}</div>
+      ${fld("msg-reply-body", "Responder", { rows: 3, required: false, placeholder: "Escreva sua resposta…" })}`,
+    okText: "Enviar resposta",
+    onOk: async () => {
+      const body = val("msg-reply-body");
+      if (!body) throw new Error("escreva uma resposta");
+      await api("/api/messages", { method: "POST", body: JSON.stringify({
+        to_user_id: m.from_user_id, subject: m.subject ? `Re: ${m.subject}` : "", body,
+      }) });
+      toast("Resposta enviada ✓");
+      if (location.hash.startsWith("#/messages")) await renderMessagesPage();
+    },
+  });
+}
+
+async function refreshMsgBadge() {
+  const badge = document.getElementById("msg-badge");
+  if (!badge) return;
+  const n = await api("/api/messages/me/unread-count").catch(() => 0);
+  if (n > 0) { badge.textContent = n > 99 ? "99+" : String(n); badge.classList.remove("hidden"); badge.classList.add("flex"); }
+  else { badge.classList.add("hidden"); badge.classList.remove("flex"); }
+}
+
+let messagesBox = "inbox";
+async function renderMessagesPage() {
+  try {
+    document.querySelectorAll("#messages-tabs .tab-trigger").forEach(t => {
+      t.classList.toggle("active", t.dataset.msgBox === messagesBox);
+      if (!t.dataset.mbound) {
+        t.dataset.mbound = "1";
+        t.addEventListener("click", () => { messagesBox = t.dataset.msgBox; renderMessagesPage(); });
+      }
+    });
+    const items = await api(`/api/messages/me?box=${messagesBox}&limit=50`);
+    _cacheMessages(items);
+    const list = document.getElementById("messages-list");
+    if (!list) return;
+    if (!items.length) {
+      list.innerHTML = `<div class="p-10 text-center text-sm text-slate-500"><i data-lucide="mail" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i>${messagesBox === "inbox" ? "Nenhuma mensagem recebida." : "Nenhuma mensagem enviada."}</div>`;
+    } else {
+      list.innerHTML = items.map(m => `
+        <div class="flex items-start gap-3 p-4 hover:bg-gelo cursor-pointer ${(!m.read_at && messagesBox === "inbox") ? "bg-gelo/60" : ""}" onclick="openMessageModal(${m.id})">
+          ${avatarHtml(messagesBox === "inbox" ? m.from_initials : "»")}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-sm font-semibold text-naval truncate">${messagesBox === "inbox" ? escapeHtml(m.from_name || "?") : "Para: " + escapeHtml(m.to_name || "?")}</div>
+              <div class="text-xs text-slate-400 shrink-0">${new Date(m.created_at).toLocaleString("pt-BR")}</div>
+            </div>
+            <div class="text-sm text-slate-700 truncate">${escapeHtml(m.subject || "(sem assunto)")}</div>
+            <div class="text-xs text-slate-400 truncate">${escapeHtml((m.body || "").slice(0, 80))}</div>
+          </div>
+          ${(!m.read_at && messagesBox === "inbox") ? `<span class="w-2 h-2 rounded-full bg-naval mt-1.5 shrink-0"></span>` : ""}
+        </div>`).join("");
+    }
+    rerunLucide();
+  } catch (e) { console.error("[messages]", e); }
+}
+
+async function openNewMessageModal() {
+  const users = (await api("/api/users").catch(() => [])).filter(u => u.id !== state.user.id);
+  showModal({
+    title: "Nova mensagem",
+    bodyHtml: `
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin-bottom:4px">Para *</label>
+        <input id="msg-to-input" list="msg-to-list" required placeholder="Digite o nome…" autocomplete="off"
+               style="width:100%;padding:9px 12px;border:1px solid #CFDEE7;border-radius:6px;font-size:14px">
+        <datalist id="msg-to-list">${users.map(u => `<option value="${escapeHtml((u.name + " " + u.surname).trim())} — #${u.id}">`).join("")}</datalist>
+      </div>
+      ${fld("msg-subject", "Assunto", { required: false, placeholder: "Assunto (opcional)" })}
+      ${fld("msg-body", "Mensagem *", { rows: 4, placeholder: "Escreva sua mensagem…" })}`,
+    okText: "Enviar",
+    onOk: async () => {
+      const toRaw = val("msg-to-input");
+      const match = toRaw.match(/#(\d+)\s*$/);
+      const toId = match ? parseInt(match[1]) : null;
+      if (!toId) throw new Error("selecione um destinatário válido da lista");
+      const body = val("msg-body");
+      if (!body) throw new Error("escreva a mensagem");
+      await api("/api/messages", { method: "POST", body: JSON.stringify({ to_user_id: toId, subject: val("msg-subject"), body }) });
+      toast("Mensagem enviada ✓");
+      if (location.hash.startsWith("#/messages")) await renderMessagesPage();
+    },
+  });
+}
+
+bindDropdownOutsideClose("msg-btn", "msg-dropdown");
 
 /* ============ PERSONIFICAR (banner) ============ */
 function updateImpersonateBanner(user) {
@@ -1988,6 +2125,7 @@ const routes = {
   "path-detail": renderPathDetail,
   "activity": () => renderActivity(true),
   "notifications": renderNotificationsPage,
+  "messages": renderMessagesPage,
 };
 async function handleRoute() {
   // Sem token = não autenticado → login (fallback p/ acesso standalone fora do Clavis).

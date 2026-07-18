@@ -1606,3 +1606,65 @@ def mark_all_notifications_read(db: Session = Depends(get_db), user: User = Depe
     ).update({"read_at": now}, synchronize_session=False)
     db.commit()
     return {"status": "ok", "updated": updated}
+
+
+# ============ MENSAGENS (Onda 2 — item 2.2) ============
+from .models import Message
+
+
+@app.get("/api/messages/me", response_model=List[schemas.MessageOut])
+def my_messages(box: str = "inbox", limit: int = 20, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    if box == "sent":
+        q = db.query(Message).filter(Message.from_user_id == user.id)
+    else:
+        box = "inbox"
+        q = db.query(Message).filter(Message.to_user_id == user.id)
+    rows = q.order_by(Message.created_at.desc()).limit(limit).all()
+    out = []
+    for m in rows:
+        mo = schemas.MessageOut.model_validate(m)
+        other = db.query(User).get(m.from_user_id if box == "inbox" else m.to_user_id)
+        if other:
+            if box == "inbox":
+                mo.from_name = f"{other.name} {other.surname}".strip()
+                mo.from_initials = other.avatar_initials
+            else:
+                mo.to_name = f"{other.name} {other.surname}".strip()
+        out.append(mo)
+    return out
+
+
+@app.get("/api/messages/me/unread-count")
+def messages_unread_count(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    return db.query(func.count(Message.id)).filter(
+        Message.to_user_id == user.id, Message.read_at.is_(None)
+    ).scalar() or 0
+
+
+@app.post("/api/messages", response_model=schemas.MessageOut, status_code=201)
+def send_message(data: schemas.MessageCreate, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    if data.to_user_id == user.id:
+        raise HTTPException(400, "não pode enviar mensagem pra si mesmo")
+    target = db.query(User).filter(User.id == data.to_user_id, User.status == "active").first()
+    if not target:
+        raise HTTPException(404, "destinatário não encontrado ou inativo")
+    m = Message(from_user_id=user.id, to_user_id=data.to_user_id, subject=data.subject, body=data.body)
+    db.add(m)
+    create_notification(db, target.id, "message", f"✉️ Nova mensagem de {user.name}",
+                         data.subject or (data.body[:80] if data.body else ""), link="#/messages")
+    db.commit(); db.refresh(m)
+    mo = schemas.MessageOut.model_validate(m)
+    mo.from_name = f"{user.name} {user.surname}".strip()
+    mo.from_initials = user.avatar_initials
+    return mo
+
+
+@app.post("/api/messages/{msg_id}/mark-read")
+def mark_message_read(msg_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    m = db.query(Message).filter(Message.id == msg_id, Message.to_user_id == user.id).first()
+    if not m:
+        raise HTTPException(404, "message not found")
+    if not m.read_at:
+        m.read_at = datetime.utcnow()
+        db.commit()
+    return {"status": "ok"}

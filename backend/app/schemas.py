@@ -422,5 +422,28 @@ class NotificationOut(BaseModel):
         from_attributes = True
 
 
+# === messages (Onda 2 — item 2.2) ===
+class MessageOut(BaseModel):
+    id: int
+    from_user_id: int
+    to_user_id: int
+    subject: str = ""
+    body: str = ""
+    read_at: Optional[datetime] = None
+    created_at: datetime
+    from_name: Optional[str] = None
+    from_initials: Optional[str] = None
+    to_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MessageCreate(BaseModel):
+    to_user_id: int
+    subject: str = ""
+    body: str
+
+
 # resolve forward
 TokenOut.model_rebuild()
