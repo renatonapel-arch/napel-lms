@@ -170,6 +170,7 @@ def course_out_with_counts(db: Session, course: Course) -> schemas.CourseOut:
     out = schemas.CourseOut.model_validate(course)
     out.units_count = db.query(func.count(Unit.id)).filter(Unit.course_id == course.id).scalar() or 0
     out.enrollments_count = db.query(func.count(Enrollment.id)).filter(Enrollment.course_id == course.id).scalar() or 0
+    out.duration_min = db.query(func.coalesce(func.sum(Unit.duration_min), 0)).filter(Unit.course_id == course.id).scalar() or 0
     return out
 
 

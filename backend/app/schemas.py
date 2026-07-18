@@ -66,6 +66,7 @@ class CourseOut(BaseModel):
     sequential: bool = False
     units_count: int = 0
     enrollments_count: int = 0
+    duration_min: int = 0
     created_at: datetime
 
     class Config:

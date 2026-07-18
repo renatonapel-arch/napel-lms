@@ -949,10 +949,12 @@ async function exportUsersCsv() {
 
 async function exportCoursesCsv() {
   if (!coursesAllCache) coursesAllCache = await api("/api/courses");
-  exportCsv("cursos.csv", coursesAllCache.map(c => ({
-    id: c.id, codigo: c.code || "", nome: c.name, categoria: c.category, status: c.status,
-    units: c.units_count, matriculados: c.enrollments_count,
-  })), ["id","codigo","nome","categoria","status","units","matriculados"]);
+  const hoje = new Date().toISOString().slice(0, 10);
+  exportCsv(`napel-lms-cursos-${hoje}.csv`, getFilteredCourses().map(c => ({
+    id: c.id, name: c.name, code: c.code || "", category: c.category, status: c.status,
+    units_count: c.units_count, students_count: c.enrollments_count,
+    duration_min: c.duration_min || 0, created_at: c.created_at,
+  })), ["id", "name", "code", "category", "status", "units_count", "students_count", "duration_min", "created_at"]);
 }
 
 async function exportUserCoursesCsv(userId) {
