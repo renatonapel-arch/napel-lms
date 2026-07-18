@@ -112,6 +112,10 @@ tailwind.config = {
   .widget-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #E4EEF3; }
   .widget-title { font-size: 14px; font-weight: 600; color: #113C58; }
   .widget-body { padding: 20px; }
+  /* modo de edição da Home — arrastar widgets (Onda 2, item 2.5) */
+  .home-widget-editing { border: 2px dashed #7DA4C6 !important; position: relative; cursor: grab; }
+  .home-widget-editing.dragging { opacity: 0.5; }
+  .widget-drag-handle { position: absolute; top: 8px; right: 8px; color: #7DA4C6; background: white; border-radius: 6px; padding: 4px; box-shadow: 0 1px 4px rgba(17,60,88,0.15); pointer-events: none; }
   /* kpi row */
   .kpi-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #F1F5F9; }
   .kpi-row:last-child { border-bottom: none; }
@@ -277,7 +281,7 @@ tailwind.config = {
           <button onclick="openWidgetPickerModal()" class="px-4 py-2.5 bg-white border border-borderd rounded-md text-sm font-medium text-naval hover:bg-gelo flex items-center gap-2">
             <i data-lucide="plus" class="w-4 h-4"></i> Adicionar widget
           </button>
-          <button id="home-edit-mode-btn" data-action="placeholder" class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Editar modo">
+          <button id="home-edit-mode-btn" onclick="toggleHomeEditMode()" class="p-2.5 bg-white border border-borderd rounded-md text-naval hover:bg-gelo icon-only" aria-label="Editar modo">
             <i data-lucide="pencil" class="w-4 h-4"></i>
           </button>
         </div>
@@ -2126,7 +2130,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=40"></script>
+<script src="api.js?v=41"></script>
 <script src="actions.js?v=12"></script>
 </body>
 </html>

@@ -679,6 +679,7 @@ async function renderDashboard() {
     }
 
     applyWidgetVisibility();
+    applyWidgetOrder();
     await populateOptionalHomeWidgets();
     rerunLucide();
   } catch (e) { console.error("[dashboard]", e); }
@@ -783,6 +784,82 @@ function openWidgetPickerModal() {
       toast("Widgets atualizados ✓");
     },
   });
+}
+
+/* ============ HOME WIDGETS — editar modo / drag-n-drop (Onda 2 — item 2.5) ============ */
+const HOME_ORDER_KEY = "lms.home.widgetOrder";
+let homeEditMode = false;
+let _dragSrcWidget = null;
+
+function _homeGrid() { return document.querySelector("#page-dashboard .grid.grid-cols-1.lg\\:grid-cols-2"); }
+
+function getWidgetOrder() {
+  try { return JSON.parse(localStorage.getItem(HOME_ORDER_KEY) || "null") || []; } catch { return []; }
+}
+function setWidgetOrder(ids) { localStorage.setItem(HOME_ORDER_KEY, JSON.stringify(ids)); }
+
+function applyWidgetOrder() {
+  const grid = _homeGrid();
+  const order = getWidgetOrder();
+  if (!grid || !order.length) return;
+  const els = $$(":scope > [data-widget-id]", grid);
+  const byId = Object.fromEntries(els.map(el => [el.dataset.widgetId, el]));
+  order.forEach(id => { if (byId[id]) grid.appendChild(byId[id]); });
+}
+
+function bindWidgetDragEvents() {
+  const grid = _homeGrid();
+  if (!grid || grid.dataset.dragBound) return;
+  grid.dataset.dragBound = "1";
+  grid.addEventListener("dragstart", (e) => {
+    const el = e.target.closest("[data-widget-id]");
+    if (!el || !homeEditMode) return;
+    _dragSrcWidget = el;
+    el.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+  grid.addEventListener("dragover", (e) => {
+    if (!homeEditMode || !_dragSrcWidget) return;
+    e.preventDefault();
+    const target = e.target.closest("[data-widget-id]");
+    if (!target || target === _dragSrcWidget) return;
+    const rect = target.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    grid.insertBefore(_dragSrcWidget, before ? target : target.nextSibling);
+  });
+  grid.addEventListener("drop", (e) => e.preventDefault());
+  grid.addEventListener("dragend", () => {
+    _dragSrcWidget?.classList.remove("dragging");
+    _dragSrcWidget = null;
+  });
+}
+
+function toggleHomeEditMode() {
+  homeEditMode = !homeEditMode;
+  const grid = _homeGrid();
+  const btn = document.getElementById("home-edit-mode-btn");
+  if (!grid) return;
+  const widgets = $$(":scope > [data-widget-id]", grid);
+  if (homeEditMode) {
+    if (btn) { btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i>`; btn.setAttribute("aria-label", "Sair da edição"); }
+    widgets.forEach(el => {
+      el.classList.add("home-widget-editing");
+      el.draggable = true;
+      if (!el.querySelector(".widget-drag-handle")) {
+        el.insertAdjacentHTML("beforeend", `<div class="widget-drag-handle"><i data-lucide="grip-vertical" class="w-4 h-4"></i></div>`);
+      }
+    });
+    bindWidgetDragEvents();
+  } else {
+    if (btn) { btn.innerHTML = `<i data-lucide="pencil" class="w-4 h-4"></i>`; btn.setAttribute("aria-label", "Editar modo"); }
+    widgets.forEach(el => {
+      el.classList.remove("home-widget-editing", "dragging");
+      el.draggable = false;
+      el.querySelector(".widget-drag-handle")?.remove();
+    });
+    setWidgetOrder($$(":scope > [data-widget-id]", grid).map(el => el.dataset.widgetId));
+  }
+  rerunLucide();
 }
 
 /* ============ COURSES LIST ============ */
