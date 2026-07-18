@@ -13,6 +13,7 @@ const API_BASE = (() => {
 
 const TOKEN_KEY = "napel_lms_token";
 const USER_KEY = "napel_lms_user";
+const IMPERSONATE_KEY = "napel_lms_impersonate_original_token";  // guarda o token do admin enquanto personifica
 const state = { user: null, token: null };
 let authLoading = false;  // true enquanto o bootstrap valida o token (evita modal-por-corrida)
 
@@ -40,6 +41,9 @@ let authLoading = false;  // true enquanto o bootstrap valida o token (evita mod
 })();
 window.addEventListener("message", (ev) => {
   const d = ev.data || {};
+  // Personificando: não deixa a renovação periódica do Clavis (a cada ~1min) sobrescrever
+  // o token do utilizador personificado com o token do admin de volta.
+  if (localStorage.getItem(IMPERSONATE_KEY)) return;
   if (d.type === "clavis-token" && typeof d.token === "string" && d.token) {
     localStorage.setItem(TOKEN_KEY, d.token);
     state.token = d.token;
@@ -255,6 +259,22 @@ function renderTopbar(user) {
   // remove badges hardcoded de "Mensagens 3" e "Notificações ●" (sem endpoint ainda)
   document.querySelectorAll('.main-shifted header button[aria-label="Mensagens (3 não lidas)"] span').forEach(el => el.remove());
   document.querySelectorAll('.main-shifted header button[aria-label="Notificações"] span').forEach(el => el.remove());
+  updateImpersonateBanner(user);
+}
+
+/* ============ PERSONIFICAR (banner) ============ */
+function updateImpersonateBanner(user) {
+  const originalToken = localStorage.getItem(IMPERSONATE_KEY);
+  let banner = document.getElementById("impersonate-banner");
+  if (!originalToken) { if (banner) banner.remove(); return; }
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "impersonate-banner";
+    banner.style.cssText = "position:sticky;top:0;z-index:9500;background:#FDE68A;color:#78350F;padding:10px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;text-align:center";
+    document.body.prepend(banner);
+  }
+  banner.innerHTML = `🎭 Você está personificando <strong>${escapeHtml(user.name)} ${escapeHtml(user.surname)}</strong>.
+    <button onclick="stopImpersonating()" style="padding:4px 12px;background:#78350F;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600">Sair da personificação</button>`;
 }
 
 /* ============ DASHBOARD ============ */

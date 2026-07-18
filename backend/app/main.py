@@ -504,6 +504,8 @@ def update_user(user_id: int, data: schemas.UserUpdate, db: Session = Depends(ge
     if not is_admin:
         for k in ("user_type", "branch", "status"):
             updates.pop(k, None)
+    if updates.get("user_type") == "SuperAdmin" and user.user_type != "SuperAdmin":
+        raise HTTPException(403, "somente SuperAdmin pode elevar outro utilizador a SuperAdmin")
     for k, v in updates.items():
         setattr(target, k, v)
     db.commit(); db.refresh(target)
@@ -518,6 +520,22 @@ def delete_user(user_id: int, db: Session = Depends(get_db), user: User = Depend
     if not target:
         raise HTTPException(404, "user not found")
     db.delete(target); db.commit()
+
+
+@app.post("/api/users/{user_id}/impersonate")
+def impersonate_user(user_id: int, db: Session = Depends(get_db), admin: User = Depends(current_user)):
+    """SuperAdmin personifica outro utilizador: emite um novo token válido pro target_user.
+    Auditoria fica só no log de stdout (sem tabela própria nesta demo)."""
+    if admin.user_type != "SuperAdmin":
+        raise HTTPException(403, "somente SuperAdmin pode personificar")
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(404, "user not found")
+    if target.id == admin.id:
+        raise HTTPException(400, "você já é você")
+    token = make_token(target)
+    print(f"[IMPERSONATE] admin={admin.id} target={target.id} at={datetime.utcnow().isoformat()}")
+    return {"access_token": token, "target_user": schemas.UserOut.model_validate(target)}
 
 
 # ============ QUIZ ============

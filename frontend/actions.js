@@ -182,7 +182,7 @@ async function openEditUser(userId) {
       fld("u-name", "Nome", { value: u.name }) +
       fld("u-surname", "Sobrenome", { value: u.surname || "", required: false }) +
       fld("u-email", "E-mail", { type: "email", value: u.email }) +
-      (canChangeType ? fld("u-type", "Tipo", { value: u.user_type, choices: ["Learner-Type", "Instructor-Type", "Admin", "SuperAdmin"] }) : "") +
+      (canChangeType ? fld("u-type", "Tipo", { value: u.user_type, choices: meRole === "SuperAdmin" ? ["Learner-Type", "Instructor-Type", "Admin", "SuperAdmin"] : ["Learner-Type", "Instructor-Type", "Admin"] }) : "") +
       (canChangeType ? fld("u-branch", "Filial", { value: u.branch, choices: ["MGA", "LEM", "PTA"] }) : "") +
       (canChangeType ? fld("u-status", "Status", { value: u.status, choices: [{value:"active",label:"Ativo"},{value:"inactive",label:"Inativo"}] }) : ""),
     okText: "Salvar",
@@ -411,8 +411,26 @@ async function openEditProfile() {
 
 async function impersonate(userId) {
   if (userId === state.user.id) { toast("Você já é você", "info"); return; }
-  toast("Personificação não disponível na demo (gera nova sessão). Use logout + login direto.", "info");
+  if (state.user.user_type !== "SuperAdmin") { toast("Só SuperAdmin pode personificar", "error"); return; }
+  if (!confirm("Personificar este utilizador? Você vai navegar como se fosse ele — pra sair, use o banner amarelo que aparece no topo.")) return;
+  try {
+    const r = await api(`/api/users/${userId}/impersonate`, { method: "POST" });
+    localStorage.setItem(IMPERSONATE_KEY, getToken());
+    setToken(r.access_token);
+    location.hash = "#/dashboard";
+    location.reload();
+  } catch (e) { alert("Erro: " + e.message); }
 }
+
+function stopImpersonating() {
+  const original = localStorage.getItem(IMPERSONATE_KEY);
+  if (!original) return;
+  localStorage.removeItem(IMPERSONATE_KEY);
+  setToken(original);
+  location.hash = "#/dashboard";
+  location.reload();
+}
+window.stopImpersonating = stopImpersonating;
 
 /* ============ QUIZ INTERATIVO ============ */
 let quizState = { unitId: null, qIdx: 0, totalQ: 0, answered: {}, finished: false };
