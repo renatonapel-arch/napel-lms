@@ -550,6 +550,18 @@ def update_user(user_id: int, data: schemas.UserUpdate, db: Session = Depends(ge
     return target
 
 
+# alterar a própria senha (Onda 2 — item 2.3: menu de conta)
+@app.post("/api/users/me/change-password")
+def change_my_password(data: schemas.PasswordChangeIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(400, "senha atual incorreta")
+    if len(data.new_password) < 6:
+        raise HTTPException(400, "nova senha precisa ter ao menos 6 caracteres")
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
+    return {"status": "ok"}
+
+
 @app.delete("/api/users/{user_id}", status_code=204)
 def delete_user(user_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     if user_id == user.id:

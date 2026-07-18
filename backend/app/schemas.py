@@ -445,5 +445,11 @@ class MessageCreate(BaseModel):
     body: str
 
 
+# === alterar senha (Onda 2 — item 2.3) ===
+class PasswordChangeIn(BaseModel):
+    current_password: str
+    new_password: str
+
+
 # resolve forward
 TokenOut.model_rebuild()

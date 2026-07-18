@@ -249,9 +249,17 @@ function renderTopbar(user) {
     </div>
     <div class="relative">
       <button id="user-menu-btn" class="avatar" aria-label="Menu do usuário" onclick="document.getElementById('user-menu-dropdown').classList.toggle('hidden')">${escapeHtml(user.avatar_initials)}</button>
-      <div id="user-menu-dropdown" class="hidden absolute right-0 top-full mt-2 w-48 bg-white border border-borderd rounded-md shadow-lg z-50 py-1">
+      <div id="user-menu-dropdown" class="hidden absolute right-0 top-full mt-2 w-64 bg-white border border-borderd rounded-md shadow-lg z-50 py-1">
+        <div class="flex items-center gap-3 px-4 py-3 border-b border-borderd">
+          ${avatarHtml(user.avatar_initials, "lg")}
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-naval truncate">${escapeHtml((user.name + " " + user.surname).trim())}</div>
+            <div class="text-[11px] text-slate-500">${escapeHtml(user.user_type)}</div>
+          </div>
+        </div>
         <a href="#/profile" class="block px-4 py-2 text-sm text-naval hover:bg-gelo">Meu perfil</a>
-        <a href="#/dashboard" class="block px-4 py-2 text-sm text-naval hover:bg-gelo">Dashboard</a>
+        <button onclick="openChangePasswordModal()" class="block w-full text-left px-4 py-2 text-sm text-naval hover:bg-gelo">Alterar senha</button>
+        ${["SuperAdmin", "Admin"].includes(user.user_type) ? `<a href="#/account" class="block px-4 py-2 text-sm text-naval hover:bg-gelo">Configurações</a>` : ""}
         <div class="border-t border-borderd my-1"></div>
         <button onclick="doLogout()" class="block w-full text-left px-4 py-2 text-sm text-danger-fg hover:bg-danger-bg">Sair</button>
       </div>
@@ -484,6 +492,29 @@ async function openNewMessageModal() {
 }
 
 bindDropdownOutsideClose("msg-btn", "msg-dropdown");
+
+/* ============ MENU DE CONTA (Onda 2 — item 2.3) ============ */
+function openChangePasswordModal() {
+  document.getElementById("user-menu-dropdown")?.classList.add("hidden");
+  showModal({
+    title: "Alterar senha",
+    bodyHtml:
+      fld("pw-current", "Senha atual *", { type: "password" }) +
+      fld("pw-new", "Nova senha *", { type: "password", hint: "Mínimo 6 caracteres" }) +
+      fld("pw-confirm", "Confirmar nova senha *", { type: "password" }),
+    okText: "Salvar nova senha",
+    onOk: async () => {
+      const cur = val("pw-current"), nw = val("pw-new"), conf = val("pw-confirm");
+      if (!cur || !nw || !conf) throw new Error("preencha todos os campos");
+      if (nw !== conf) throw new Error("as senhas novas não coincidem");
+      if (nw.length < 6) throw new Error("nova senha precisa ter ao menos 6 caracteres");
+      await api("/api/users/me/change-password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: nw }) });
+      toast("Senha alterada ✓");
+    },
+  });
+}
+
+bindDropdownOutsideClose("user-menu-btn", "user-menu-dropdown");
 
 /* ============ PERSONIFICAR (banner) ============ */
 function updateImpersonateBanner(user) {
