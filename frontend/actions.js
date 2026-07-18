@@ -1260,6 +1260,7 @@ document.addEventListener("click", async (e) => {
     case "create-category": return openCreateCategory();
     case "manage-categories": return openCategoriesModal();
     case "import-courses": return openImportCoursesModal();
+    case "new-message": return openNewMessageModal();
     case "edit-user": return openEditUser(id || currentUserIdFromHash());
     case "edit-profile": return openEditProfile();
     case "enroll-self": return selfEnroll(id || currentCourseIdFromHash());
