@@ -39,6 +39,9 @@ def migrate_add_columns():
         "ALTER TABLE progress ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb",
         "ALTER TABLE categories ADD COLUMN IF NOT EXISTS color VARCHAR(16) DEFAULT '#7DA4C6'",
         "ALTER TABLE groups ADD COLUMN IF NOT EXISTS category VARCHAR(80) DEFAULT ''",
+        # Onda 6 — item 6.3: rastreio de e-mail transacional enviado
+        "ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMP",
+        "ALTER TABLE certificates ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMP",
     ]
     with engine.connect() as c:
         for sql in mig:

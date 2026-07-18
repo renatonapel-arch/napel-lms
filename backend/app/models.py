@@ -78,6 +78,7 @@ class Enrollment(Base):
     role = Column(String(16), default="Estudante")  # Estudante | Professor | Trainer
     enrolled_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
+    email_sent_at = Column(DateTime, nullable=True)  # Onda 6.3 — e-mail de matrícula
     __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_enroll"),)
 
     user = relationship("User", back_populates="enrollments")
@@ -139,6 +140,7 @@ class Certificate(Base):
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String(32), unique=True, nullable=False)  # ex: NAPEL-2026-AB12CD
     issued_at = Column(DateTime, default=datetime.utcnow)
+    email_sent_at = Column(DateTime, nullable=True)  # Onda 6.3 — e-mail de certificado emitido
     __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_certificate"),)
 
 
@@ -245,7 +247,7 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-# ============ AUTH — REFRESH TOKEN (Onda 6 — item 6.1) ============
+# ============ AUTH — REFRESH & RESET (Onda 6 — itens 6.1 / 6.2) ============
 class RefreshToken(Base):
     """Refresh token opaco (não-JWT) — permite renovar o access token sem novo login
     e permite revogação server-side (logout / reset de senha). Token guardado em texto

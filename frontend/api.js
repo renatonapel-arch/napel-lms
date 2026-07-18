@@ -1426,9 +1426,12 @@ async function renderAccountTab(tab) {
   if (!content) return;
   try {
   if (tab === "portal") {
-    const s = await api("/api/settings/portal");
+    const [s, em] = await Promise.all([
+      api("/api/settings/portal"),
+      api("/api/settings/email").catch(() => ({ welcome_enabled: true, matricula_enabled: true, completion_enabled: true, certificate_enabled: true })),
+    ]);
     content.innerHTML = `
-      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl">
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl mb-4">
         <h3 class="text-base font-semibold text-naval mb-1">Identidade do portal</h3>
         <p class="text-xs text-slate-500 mb-5">Aparece no topbar, login e e-mails enviados.</p>
         <form id="portal-form" class="space-y-4">
@@ -1440,6 +1443,19 @@ async function renderAccountTab(tab) {
             <button type="submit" class="px-4 py-2 bg-naval text-white rounded-md text-sm font-semibold">Salvar</button>
           </div>
         </form>
+      </div>
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-2xl">
+        <h3 class="text-base font-semibold text-naval mb-1">E-mails automáticos</h3>
+        <p class="text-xs text-slate-500 mb-5">Ative/desative cada e-mail transacional disparado pelo portal (Onda 6 — item 6.3).</p>
+        <form id="email-settings-form" class="space-y-3">
+          <label class="flex items-center gap-2 text-sm text-naval"><input type="checkbox" id="em-welcome" ${em.welcome_enabled ? "checked" : ""} class="rounded border-borders"> Boas-vindas ao criar utilizador</label>
+          <label class="flex items-center gap-2 text-sm text-naval"><input type="checkbox" id="em-matricula" ${em.matricula_enabled ? "checked" : ""} class="rounded border-borders"> Matrícula em curso</label>
+          <label class="flex items-center gap-2 text-sm text-naval"><input type="checkbox" id="em-completion" ${em.completion_enabled ? "checked" : ""} class="rounded border-borders"> Conclusão de curso</label>
+          <label class="flex items-center gap-2 text-sm text-naval"><input type="checkbox" id="em-certificate" ${em.certificate_enabled ? "checked" : ""} class="rounded border-borders"> Certificado emitido</label>
+          <div class="pt-4 border-t border-borderd flex justify-end">
+            <button type="submit" class="px-4 py-2 bg-naval text-white rounded-md text-sm font-semibold">Salvar</button>
+          </div>
+        </form>
       </div>`;
     document.getElementById("portal-form").onsubmit = async (e) => {
       e.preventDefault();
@@ -1447,6 +1463,18 @@ async function renderAccountTab(tab) {
         await api("/api/settings/portal", { method: "PUT", body: JSON.stringify({
           site_name: val("p-name"), site_description: val("p-desc"),
           primary_color: val("p-color"), logo_url: val("p-logo") || null,
+        })});
+        toast("Salvo ✓");
+      } catch (err) { alert("Erro: " + err.message); }
+    };
+    document.getElementById("email-settings-form").onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api("/api/settings/email", { method: "PUT", body: JSON.stringify({
+          welcome_enabled: document.getElementById("em-welcome").checked,
+          matricula_enabled: document.getElementById("em-matricula").checked,
+          completion_enabled: document.getElementById("em-completion").checked,
+          certificate_enabled: document.getElementById("em-certificate").checked,
         })});
         toast("Salvo ✓");
       } catch (err) { alert("Erro: " + err.message); }

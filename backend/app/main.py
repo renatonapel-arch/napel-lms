@@ -272,6 +272,10 @@ def create_user(data: schemas.UserCreate, db: Session = Depends(get_db), _: User
     db.add(user)
     db.commit()
     db.refresh(user)
+    # e-mail de boas-vindas (Onda 6 — item 6.3) — best-effort, nunca bloqueia a criação do user
+    if _email_setting_enabled(db, "welcome_enabled"):
+        subject, html = emails.welcome_email(f"{user.name} {user.surname}".strip(), user.login, data.password)
+        emails.send_email_async(user.email, subject, html)
     return user
 
 
@@ -505,9 +509,21 @@ def enroll_me(data: schemas.EnrollmentMe, db: Session = Depends(get_db), user: U
     db.add(e)
     db.commit()
     db.refresh(e)
+    _send_enrollment_email(db, user, data.course_id)
     out = schemas.EnrollmentOut.model_validate(e)
     out.progress_pct = 0
     return out
+
+
+def _send_enrollment_email(db: Session, user: User, course_id: int) -> None:
+    """E-mail de matrícula (Onda 6 — item 6.3) — best-effort, chamado nos 3 pontos de matrícula."""
+    if not _email_setting_enabled(db, "matricula_enabled"):
+        return
+    course = db.query(Course).get(course_id)
+    if not course:
+        return
+    subject, html = emails.enrollment_email(f"{user.name} {user.surname}".strip(), course.name, course.id)
+    emails.send_email_async(user.email, subject, html)
 
 
 @app.get("/api/users/me/enrollments", response_model=List[schemas.EnrollmentOut])
@@ -660,6 +676,9 @@ def enroll_user_as_admin(data: schemas.EnrollmentCreate, db: Session = Depends(g
         raise HTTPException(409, "já matriculado")
     e = Enrollment(user_id=data.user_id, course_id=data.course_id, role=data.role)
     db.add(e); db.commit(); db.refresh(e)
+    target = db.query(User).get(data.user_id)
+    if target:
+        _send_enrollment_email(db, target, data.course_id)
     out = schemas.EnrollmentOut.model_validate(e)
     out.progress_pct = 0
     return out
@@ -669,7 +688,7 @@ def enroll_user_as_admin(data: schemas.EnrollmentCreate, db: Session = Depends(g
 @app.post("/api/courses/{course_id}/enroll-bulk")
 def bulk_enroll_course(course_id: int, data: schemas.BulkEnrollIn, db: Session = Depends(get_db),
                        _: User = Depends(require_admin)):
-    added = 0; skipped = 0
+    added = 0; skipped = 0; newly_added_uids = []
     for uid in data.user_ids:
         existing = db.query(Enrollment).filter(
             Enrollment.user_id == uid, Enrollment.course_id == course_id
@@ -678,7 +697,14 @@ def bulk_enroll_course(course_id: int, data: schemas.BulkEnrollIn, db: Session =
             skipped += 1; continue
         db.add(Enrollment(user_id=uid, course_id=course_id, role=data.role))
         added += 1
+        newly_added_uids.append(uid)
     db.commit()
+    # e-mail de matrícula em massa: só pro aluno recém-adicionado (não reenvia pra quem já estava)
+    if newly_added_uids and _email_setting_enabled(db, "matricula_enabled"):
+        for uid in newly_added_uids:
+            target = db.query(User).get(uid)
+            if target:
+                _send_enrollment_email(db, target, course_id)
     return {"added": added, "skipped": skipped}
 
 
@@ -832,9 +858,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
                 if enr and not enr.completed_at:
                     enr.completed_at = _dtq.utcnow()
                     user.points = (user.points or 0) + 150
-                    grant_badge_if_missing(db, user.id, "Quiz Master")
-                    _maybe_issue_certificate(db, user.id, unit.course_id)
-                    _maybe_issue_path_certificates_for_course(db, user.id, unit.course_id)
+                    _on_course_completed(db, user, unit.course_id)
         _check_level_up(db, user)
     db.commit()
 
@@ -936,13 +960,26 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
         if enroll and not enroll.completed_at:
             enroll.completed_at = datetime.utcnow()
             user.points += 150  # bônus curso completo
-            grant_badge_if_missing(db, user.id, "Quiz Master")
-            _maybe_issue_certificate(db, user.id, unit.course_id)
-            _maybe_issue_path_certificates_for_course(db, user.id, unit.course_id)
+            _on_course_completed(db, user, unit.course_id)
     _check_level_up(db, user)
     db.commit()
     db.refresh(p)
     return p
+
+
+def _on_course_completed(db: Session, user: User, course_id: int):
+    """Chamado na 1ª vez que enrollment.completed_at é setado (de post_progress OU
+    submit_quiz_answer — antes essa lógica estava duplicada nos dois lugares).
+    Concentra badge, certificado, certificado de trilha e o e-mail de conclusão."""
+    grant_badge_if_missing(db, user.id, "Quiz Master")
+    _maybe_issue_certificate(db, user.id, course_id)
+    _maybe_issue_path_certificates_for_course(db, user.id, course_id)
+    if _email_setting_enabled(db, "completion_enabled"):
+        course = db.query(Course).get(course_id)
+        if course:
+            grade = compute_course_grade(db, user.id, course_id)
+            subject, html = emails.completion_email(f"{user.name} {user.surname}".strip(), course.name, grade)
+            emails.send_email_async(user.email, subject, html)
 
 
 def _require_enrolled(db: Session, user: User, course_id: int):
@@ -1189,6 +1226,13 @@ def _maybe_issue_certificate(db: Session, user_id: int, course_id: int):
     create_notification(db, user_id, "certificate", f"🎓 Você concluiu o curso {course.name}!",
                          "Seu certificado já está disponível pra download.", link="#/profile")
     db.commit(); db.refresh(cert)
+    if _email_setting_enabled(db, "certificate_enabled"):
+        user = db.query(User).get(user_id)
+        if user:
+            subject, html = emails.certificate_email(f"{user.name} {user.surname}".strip(), course.name, cert.id)
+            emails.send_email_async(user.email, subject, html)
+            cert.email_sent_at = datetime.utcnow()
+            db.commit()
     return cert
 
 
@@ -1351,6 +1395,24 @@ def get_gam_settings(db: Session = Depends(get_db), _: User = Depends(current_us
 @app.put("/api/settings/gamification", response_model=schemas.GamificationSettings)
 def update_gam_settings(data: schemas.GamificationSettings, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     _set_setting(db, "gamification", data.model_dump())
+    return data
+
+
+# ============ E-MAILS TRANSACIONAIS (Onda 6 — item 6.3) ============
+def _email_setting_enabled(db: Session, flag: str) -> bool:
+    d = schemas.EmailSettings().model_dump()
+    return bool(_get_setting(db, "email", d).get(flag, True))
+
+
+@app.get("/api/settings/email", response_model=schemas.EmailSettings)
+def get_email_settings(db: Session = Depends(get_db), _: User = Depends(current_user)):
+    d = schemas.EmailSettings().model_dump()
+    return schemas.EmailSettings(**_get_setting(db, "email", d))
+
+
+@app.put("/api/settings/email", response_model=schemas.EmailSettings)
+def update_email_settings(data: schemas.EmailSettings, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    _set_setting(db, "email", data.model_dump())
     return data
 
 

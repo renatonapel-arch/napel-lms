@@ -394,6 +394,14 @@ class GamificationSettings(BaseModel):
     level_up_points: int = 1000
 
 
+# === e-mails transacionais (Onda 6 — item 6.3) ===
+class EmailSettings(BaseModel):
+    welcome_enabled: bool = True
+    matricula_enabled: bool = True
+    completion_enabled: bool = True
+    certificate_enabled: bool = True
+
+
 # === quiz history ===
 class QuizAttemptOut(BaseModel):
     id: int
