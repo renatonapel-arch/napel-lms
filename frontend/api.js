@@ -1919,7 +1919,10 @@ async function renderUserDetail() {
     const progress = await api(`/api/users/${userId}/progress`).catch(() => []);
     const doneCount = progress.filter(p => (p.completion_pct || 0) > 0).length;
     if (tabs[3]) tabs[3].innerHTML = `<i data-lucide="play-circle" class="w-4 h-4"></i> Aulas <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${doneCount}</span>`;
-    renderAulasZone(progress);
+    const allCourses = await api("/api/courses").catch(() => []);   // reusado abaixo na tabela de cursos
+    const courseMap = Object.fromEntries(allCourses.map(c => [c.id, c]));
+    const enrollmentsWithNames = u.enrollments.map(e => ({ ...e, course_name: (courseMap[e.course_id] || {}).name }));
+    renderAulasZone(progress, { user: u, enrollments: enrollmentsWithNames, quizAttempts: attempts });
 
     // troca de aba (Cursos / Provas / Certificados / Aulas)
     if (!tabs[0]?.dataset.udBound) {
@@ -1941,8 +1944,6 @@ async function renderUserDetail() {
     // tabela cursos (com nomes reais)
     const tbody = $("#page-user-detail .data-table tbody");
     if (tbody) {
-      const allCourses = await api("/api/courses").catch(() => []);
-      const courseMap = Object.fromEntries(allCourses.map(c => [c.id, c]));
       tbody.innerHTML = u.enrollments.map((e, i) => {
         const c = courseMap[e.course_id] || { name: `curso #${e.course_id}`, code: "", icon: "book-open", thumbnail_seed: 1 };
         return `
@@ -2009,11 +2010,15 @@ function aulaPctClass(pct) {
   if (pct > 0) return "text-warn-fg font-bold";
   return "text-slate-400";
 }
-function renderAulasZone(all) {
+function renderAulasZone(all, historyData) {
   const zone = $("#user-aulas-zone");
   if (!zone) return;
+  const downloadBtnHtml = `<button id="btn-download-history" class="no-print h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm font-semibold"><i data-lucide="download" class="w-4 h-4"></i> Baixar histórico completo</button>`;
   if (all.length === 0) {
-    zone.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="play-circle" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><h3 class="text-sm font-semibold text-naval mb-1">Aluno ainda não consumiu nenhuma aula</h3></div>`;
+    zone.innerHTML = `
+      <div class="flex justify-end mb-3">${downloadBtnHtml}</div>
+      <div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="play-circle" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><h3 class="text-sm font-semibold text-naval mb-1">Aluno ainda não consumiu nenhuma aula</h3></div>`;
+    $("#btn-download-history")?.addEventListener("click", () => printStudentHistory(historyData.user, historyData.enrollments, all, historyData.quizAttempts));
     return;
   }
   const courses = [...new Map(all.map(a => [a.course_id, a.course_name])).entries()];
@@ -2028,12 +2033,14 @@ function renderAulasZone(all) {
         <option value="">Todos os tipos</option>
         ${kinds.map(k => `<option value="${k}">${escapeHtml(AULA_KIND_LABEL[k] || k)}</option>`).join("")}
       </select>
+      <div class="md:ml-auto">${downloadBtnHtml}</div>
     </div>
     <div class="bg-white border border-borderd rounded-lg overflow-hidden">
       <table class="data-table"><thead><tr>
         <th>Curso</th><th>Seção</th><th>Aula</th><th>Tipo</th><th>Concluída em</th><th class="text-right">%</th>
       </tr></thead><tbody id="aulas-tbody"></tbody></table>
     </div>`;
+  $("#btn-download-history")?.addEventListener("click", () => printStudentHistory(historyData.user, historyData.enrollments, all, historyData.quizAttempts));
   renderAulasTable(all);
   $("#aulas-filter-course").addEventListener("change", () => applyAulasFilter(all));
   $("#aulas-filter-type").addEventListener("change", () => applyAulasFilter(all));
@@ -2227,6 +2234,86 @@ async function renderProfile() {
 }
 
 /* ============ UNIT PLAYER (interactive: marcar concluído) ============ */
+/* ============ IMPRIMIR / BAIXAR PDF (Onda 6 — item 6.4) ============
+ * Opção A do prompt: reusa window.print() (Ctrl+P → "Salvar como PDF"), sem backend
+ * novo nem dependência (weasyprint). O CSS @media print (index.html) já esconde
+ * sidebar/topbar/botões — aqui só ajustamos o document.title (usado como nome de
+ * arquivo sugerido pelo navegador) e restauramos depois. */
+function _printSlug(s) {
+  return (s || "documento").normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+}
+function _withPrintTitle(slug, fn) {
+  const oldTitle = document.title;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  document.title = `Napel-LMS-${_printSlug(slug)}-${dateStr}`;
+  const restore = () => { document.title = oldTitle; window.removeEventListener("afterprint", restore); };
+  window.addEventListener("afterprint", restore);
+  fn();
+}
+
+let _currentPlayerUnit = null;
+function printCurrentUnit() {
+  if (!_currentPlayerUnit) { window.print(); return; }
+  _withPrintTitle(_currentPlayerUnit.title, () => window.print());
+}
+
+// "Baixar histórico completo" (perfil do aluno, aba Aulas): concatena um HTML sintético
+// (cabeçalho + cursos + aulas concluídas + provas) numa área off-screen só visível na
+// impressão (#print-area, CSS em index.html), e imprime só ela.
+function printStudentHistory(user, enrollments, progress, quizAttempts) {
+  const courseMap = new Map();
+  (enrollments || []).forEach(e => courseMap.set(e.course_id, e));
+  const rowsAulas = (progress || []).map(p => `
+    <tr>
+      <td>${escapeHtml(p.course_name || "—")}</td>
+      <td>${escapeHtml(p.title || "—")}</td>
+      <td>${escapeHtml(p.kind || p.type || "—")}</td>
+      <td>${p.completed_at ? new Date(p.completed_at).toLocaleDateString("pt-BR") : "—"}</td>
+      <td style="text-align:right">${p.completion_pct ?? 0}%</td>
+    </tr>`).join("");
+  const rowsProvas = (quizAttempts || []).map(a => `
+    <tr>
+      <td>${escapeHtml(a.course_name || "—")}</td>
+      <td>${escapeHtml(a.unit_title || "—")}</td>
+      <td style="text-align:center">${a.score_pct}%</td>
+      <td style="text-align:center">${a.passed ? "Sim" : "Não"}</td>
+    </tr>`).join("");
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;padding:24px;color:#0F172A">
+      <div style="font-size:22px;font-weight:800;color:#113C58;letter-spacing:.05em">NAPEL <span style="font-size:12px;color:#7DA4C6">LMS</span></div>
+      <h1 style="font-size:18px;margin:16px 0 4px">Histórico de formação — ${escapeHtml(user.name)} ${escapeHtml(user.surname || "")}</h1>
+      <p style="font-size:12px;color:#64748B;margin:0 0 20px">${escapeHtml(user.email)} · gerado em ${new Date().toLocaleDateString("pt-BR")}</p>
+
+      <h2 style="font-size:14px;color:#113C58;border-bottom:1px solid #CBD5E1;padding-bottom:4px">Cursos matriculados (${(enrollments || []).length})</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
+        <thead><tr style="text-align:left;border-bottom:1px solid #CBD5E1"><th>Curso</th><th>Matriculado em</th><th>Concluído em</th><th style="text-align:right">%</th></tr></thead>
+        <tbody>${(enrollments || []).map(e => `<tr>
+          <td>${escapeHtml(e.course_name || ("#" + e.course_id))}</td>
+          <td>${new Date(e.enrolled_at).toLocaleDateString("pt-BR")}</td>
+          <td>${e.completed_at ? new Date(e.completed_at).toLocaleDateString("pt-BR") : "—"}</td>
+          <td style="text-align:right">${e.progress_pct}%</td>
+        </tr>`).join("")}</tbody>
+      </table>
+
+      <h2 style="font-size:14px;color:#113C58;border-bottom:1px solid #CBD5E1;padding-bottom:4px">Aulas concluídas (${(progress || []).filter(p => p.completion_pct >= 100).length})</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px">
+        <thead><tr style="text-align:left;border-bottom:1px solid #CBD5E1"><th>Curso</th><th>Aula</th><th>Tipo</th><th>Concluída em</th><th style="text-align:right">%</th></tr></thead>
+        <tbody>${rowsAulas || '<tr><td colspan="5">Nenhuma aula ainda.</td></tr>'}</tbody>
+      </table>
+
+      <h2 style="font-size:14px;color:#113C58;border-bottom:1px solid #CBD5E1;padding-bottom:4px">Provas (${(quizAttempts || []).length})</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="text-align:left;border-bottom:1px solid #CBD5E1"><th>Curso</th><th>Prova</th><th style="text-align:center">Nota</th><th style="text-align:center">Passou</th></tr></thead>
+        <tbody>${rowsProvas || '<tr><td colspan="4">Nenhuma prova ainda.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+  let area = document.getElementById("print-area");
+  if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.appendChild(area); }
+  area.innerHTML = html;
+  _withPrintTitle(`historico-${user.login || user.id}`, () => window.print());
+}
+
 async function renderUnitPlayer() {
   try {
     const qs = new URLSearchParams(location.hash.split("?")[1] || "");
@@ -2267,6 +2354,10 @@ async function renderUnitPlayer() {
 
     const h1 = $("#page-unit-player h1");
     if (h1) h1.textContent = `${unit.order_index} · ${unit.title}`;
+    // Onda 6 — item 6.4: botão Imprimir só faz sentido pra conteúdo lido (apostila/quiz)
+    _currentPlayerUnit = { title: unit.title, courseName: courseInfo ? courseInfo.name : "curso" };
+    const printBtn = $("#btn-print-unit");
+    if (printBtn) printBtn.style.display = (unit.type === "text" || unit.type === "quiz") ? "" : "none";
     const sub = $("#page-unit-player p.text-sm.text-slate-500");
     if (sub) sub.textContent = `${unit.type} · ${unit.duration_min} min`;
 
