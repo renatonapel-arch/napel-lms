@@ -590,6 +590,9 @@ tailwind.config = {
         <button id="courses-more-filters-btn" onclick="toggleAdvancedCourseFilters()" class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm">
           <i data-lucide="filter" class="w-4 h-4"></i> Mais filtros
         </button>
+        <label class="h-10 px-3 flex items-center gap-2 text-sm text-naval cursor-pointer border border-borderd rounded-md bg-white">
+          <input type="checkbox" id="courses-select-all" onchange="bulkSelectAllVisible('courses', this.checked)"> Selecionar todos
+        </label>
       </div>
 
       <!-- painel de filtros avançados (Onda 3, item 3.3) -->
@@ -1622,9 +1625,14 @@ tailwind.config = {
           <h1 class="text-2xl font-bold text-naval">Grupos</h1>
           <p class="text-sm text-slate-500 mt-1" id="groups-subtitle">—</p>
         </div>
-        <button data-action="create-group" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
-          <i data-lucide="plus" class="w-4 h-4"></i> Criar grupo
-        </button>
+        <div class="flex gap-2 items-center flex-wrap">
+          <label class="h-10 px-3 flex items-center gap-2 text-sm text-naval cursor-pointer border border-borderd rounded-md bg-white">
+            <input type="checkbox" id="groups-select-all" onchange="bulkSelectAllVisible('groups', this.checked)"> Selecionar todos
+          </label>
+          <button data-action="create-group" class="px-4 py-2.5 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90 flex items-center gap-2 shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Criar grupo
+          </button>
+        </div>
       </div>
       <div id="groups-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </section>
@@ -1833,6 +1841,7 @@ tailwind.config = {
           <table class="data-table">
             <thead>
               <tr>
+                <th style="width:36px"><input type="checkbox" id="users-select-all" onchange="bulkSelectAllVisible('users', this.checked)" aria-label="Selecionar todos"></th>
                 <th>Utilizador</th>
                 <th class="hidden md:table-cell">Tipo</th>
                 <th class="hidden md:table-cell">Filial</th>
@@ -2174,7 +2183,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=42"></script>
-<script src="actions.js?v=20"></script>
+<script src="api.js?v=43"></script>
+<script src="actions.js?v=21"></script>
 </body>
 </html>

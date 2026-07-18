@@ -1258,6 +1258,164 @@ function openImportCoursesModal() {
   bindImportModalEvents();
 }
 
+/* ============ BULK ACTIONS (Onda 5, item 5.4) ============ */
+const bulkSel = { users: new Set(), courses: new Set(), groups: new Set() };
+
+const BULK_ACTIONS = {
+  users: [
+    { key: "activate", label: "Ativar" },
+    { key: "deactivate", label: "Desativar" },
+    { key: "enroll", label: "Matricular em curso…" },
+    { key: "add-group", label: "Adicionar ao grupo…" },
+    { key: "delete", label: "Deletar", danger: true },
+  ],
+  courses: [
+    { key: "activate", label: "Ativar" },
+    { key: "archive", label: "Arquivar" },
+    { key: "duplicate", label: "Duplicar todos" },
+    { key: "delete", label: "Deletar", danger: true },
+  ],
+  groups: [
+    { key: "activate", label: "Ativar" },
+    { key: "deactivate", label: "Desativar" },
+    { key: "delete", label: "Deletar", danger: true },
+  ],
+};
+
+function bulkToggleOne(page, id, checked) {
+  checked ? bulkSel[page].add(id) : bulkSel[page].delete(id);
+  renderBulkBar(page);
+}
+
+function bulkSelectAllVisible(page, checked) {
+  document.querySelectorAll(`.bulk-cb[data-page="${page}"]`).forEach(cb => {
+    cb.checked = checked;
+    const id = parseInt(cb.dataset.id);
+    checked ? bulkSel[page].add(id) : bulkSel[page].delete(id);
+  });
+  renderBulkBar(page);
+}
+
+function syncBulkCheckboxes(page) {
+  document.querySelectorAll(`.bulk-cb[data-page="${page}"]`).forEach(cb => {
+    cb.checked = bulkSel[page].has(parseInt(cb.dataset.id));
+  });
+}
+
+function bulkClear(page) {
+  bulkSel[page].clear();
+  const selAll = document.getElementById(`${page}-select-all`);
+  if (selAll) selAll.checked = false;
+  syncBulkCheckboxes(page);
+  renderBulkBar(page);
+}
+
+function ensureBulkBar() {
+  if (document.getElementById("bulk-bar")) return;
+  const el = document.createElement("div");
+  el.id = "bulk-bar";
+  el.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#113C58;color:white;padding:10px 16px;border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.3);z-index:8000;display:none;align-items:center;gap:8px;font-size:13px";
+  document.body.appendChild(el);
+}
+
+function renderBulkBar(page) {
+  ensureBulkBar();
+  const bar = document.getElementById("bulk-bar");
+  const n = bulkSel[page].size;
+  if (n === 0) { bar.style.display = "none"; return; }
+  const actionsHtml = BULK_ACTIONS[page].map(a => `<button data-bulk-action="${a.key}" data-bulk-page="${page}" style="padding:7px 14px;background:${a.danger ? "#EF4444" : "rgba(255,255,255,.15)"};border:none;border-radius:6px;color:white;font-weight:600;cursor:pointer;font-size:12px">${a.label}</button>`).join("");
+  bar.innerHTML = `<strong style="padding-right:6px">${n} selecionado${n > 1 ? "s" : ""}</strong>${actionsHtml}<button data-bulk-action="clear" data-bulk-page="${page}" style="padding:7px 10px;background:transparent;border:none;color:#CFE3EE;cursor:pointer;font-size:12px">✕ limpar</button>`;
+  bar.style.display = "flex";
+}
+
+async function bulkPatchAll(base, ids, body) {
+  await Promise.all(ids.map(id => api(`${base}/${id}`, { method: "PATCH", body: JSON.stringify(body) })));
+}
+async function bulkDeleteAll(base, ids) {
+  await Promise.all(ids.map(id => api(`${base}/${id}`, { method: "DELETE" }).catch(() => {})));
+}
+async function bulkDuplicateCourses(ids) {
+  const courses = await Promise.all(ids.map(id => api(`/api/courses/${id}`)));
+  await Promise.all(courses.map(c => api("/api/courses", { method: "POST", body: JSON.stringify({
+    name: `${c.name} (cópia)`, category: c.category, description: c.description, status: "draft",
+    thumbnail_seed: c.thumbnail_seed, icon: c.icon, sequential: c.sequential,
+  }) })));
+}
+
+async function refreshBulkPage(page) {
+  if (page === "users" && typeof renderUsers === "function") await renderUsers();
+  if (page === "courses" && typeof renderCourses === "function") await renderCourses();
+  if (page === "groups" && typeof renderGroups === "function") await renderGroups();
+}
+
+async function openBulkEnrollCourseModal(ids) {
+  const courses = await api("/api/courses?status=active");
+  showModal({
+    title: `Matricular ${ids.length} utilizador(es) em curso`,
+    bodyHtml:
+      fld("bk-course", "Curso", { choices: courses.map(c => ({ value: c.id, label: c.name })) }) +
+      fld("bk-role", "Papel", { choices: ["Estudante", "Professor", "Trainer"] }),
+    okText: "Matricular",
+    onOk: async () => {
+      const r = await api(`/api/courses/${val("bk-course")}/enroll-bulk`, { method: "POST", body: JSON.stringify({ user_ids: ids, role: val("bk-role") }) });
+      toast(`${r.added} matriculado(s) ✓ · ${r.skipped} já estavam`);
+      bulkClear("users");
+      await refreshBulkPage("users");
+    },
+  });
+}
+
+async function openBulkAddToGroupModal(ids) {
+  const groups = await api("/api/groups");
+  if (groups.length === 0) { toast("Nenhum grupo cadastrado ainda.", "info"); return; }
+  showModal({
+    title: `Adicionar ${ids.length} utilizador(es) a um grupo`,
+    bodyHtml: fld("bk-group", "Grupo", { choices: groups.map(g => ({ value: g.id, label: g.name })) }),
+    okText: "Adicionar",
+    onOk: async () => {
+      const groupId = val("bk-group");
+      const g = await api(`/api/groups/${groupId}`);
+      const merged = Array.from(new Set([...(g.user_ids || []), ...ids]));
+      await api(`/api/groups/${groupId}/users`, { method: "PUT", body: JSON.stringify({ user_ids: merged }) });
+      toast(`Adicionados ao grupo "${g.name}" ✓`);
+      bulkClear("users");
+      await refreshBulkPage("users");
+    },
+  });
+}
+
+async function handleBulkAction(page, action) {
+  if (action === "clear") { bulkClear(page); return; }
+  const ids = Array.from(bulkSel[page]);
+  if (ids.length === 0) return;
+  try {
+    if (action === "enroll") return openBulkEnrollCourseModal(ids);
+    if (action === "add-group") return openBulkAddToGroupModal(ids);
+    if (action === "delete") {
+      if (!confirm(`Deletar ${ids.length} ${ids.length > 1 ? "itens" : "item"}?`)) return;
+      const base = { users: "/api/users", courses: "/api/courses", groups: "/api/groups" }[page];
+      await bulkDeleteAll(base, ids);
+    } else if (action === "duplicate") {
+      await bulkDuplicateCourses(ids);
+    } else if (action === "activate" || action === "deactivate") {
+      const base = { users: "/api/users", courses: "/api/courses", groups: "/api/groups" }[page];
+      await bulkPatchAll(base, ids, { status: action === "activate" ? "active" : "inactive" });
+    } else if (action === "archive") {
+      await bulkPatchAll("/api/courses", ids, { status: "archived" });
+    }
+    toast("Ação em lote concluída ✓");
+    bulkClear(page);
+    await refreshBulkPage(page);
+  } catch (e) { alert("Erro: " + e.message); }
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-bulk-action]");
+  if (!t) return;
+  e.preventDefault();
+  handleBulkAction(t.dataset.bulkPage, t.dataset.bulkAction);
+});
+
 /* ============ DELEGATION ============ */
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("[data-action]");

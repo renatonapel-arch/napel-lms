@@ -869,9 +869,14 @@ let coursesPage = 1;
 // card único, reusado tanto no load inicial quanto no filtro (evita 2 templates divergindo)
 function courseCardHtml(c) {
   return `
-      <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="if(!event.target.closest('.card-menu'))location.hash='#/course-detail?id=${c.id}'">
+      <article class="bg-white border border-borderd rounded-lg overflow-hidden hover:shadow-md transition-shadow group cursor-pointer" onclick="if(!event.target.closest('.card-menu') && !event.target.closest('.bulk-cb-wrap'))location.hash='#/course-detail?id=${c.id}'">
         <div class="${thumbClass(c.thumbnail_seed)} aspect-video relative">
-          <span class="absolute top-3 left-3 badge ${c.status === "active" ? "badge-success" : c.status === "draft" ? "badge-warn" : "badge-neutral"}">${c.status === "active" ? "Ativo" : c.status === "draft" ? "Rascunho" : "Arquivado"}</span>
+          <div class="absolute top-3 left-3 flex items-center gap-2">
+            <label class="bulk-cb-wrap w-5 h-5 rounded bg-white/90 flex items-center justify-center">
+              <input type="checkbox" class="bulk-cb" data-page="courses" data-id="${c.id}" onchange="bulkToggleOne('courses', ${c.id}, this.checked)">
+            </label>
+            <span class="badge ${c.status === "active" ? "badge-success" : c.status === "draft" ? "badge-warn" : "badge-neutral"}">${c.status === "active" ? "Ativo" : c.status === "draft" ? "Rascunho" : "Arquivado"}</span>
+          </div>
           <div class="card-menu absolute top-3 right-3">
             <button class="w-9 h-9 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60 icon-only" aria-label="Opções" onclick="this.nextElementSibling.classList.toggle('hidden')"><i data-lucide="more-vertical" class="w-4 h-4"></i></button>
             <div class="hidden absolute right-0 top-full mt-1 w-40 bg-white border border-borderd rounded-md shadow-lg z-50 py-1 text-left">
@@ -931,6 +936,7 @@ function renderCoursesList(list) {
     pagerBox.innerHTML = html;
   }
   rerunLucide();
+  if (typeof syncBulkCheckboxes === "function") syncBulkCheckboxes("courses");
 }
 
 async function renderCourses() {
@@ -1213,7 +1219,7 @@ async function renderGroups() {
       grid.innerHTML = groups.map(g => `
         <div class="bg-white border border-borderd rounded-lg p-5 hover:shadow-md transition-shadow">
           <div class="flex items-start justify-between mb-2">
-            <h3 class="text-base font-semibold text-naval line-clamp-1">${escapeHtml(g.name)}</h3>
+            <h3 class="text-base font-semibold text-naval line-clamp-1 flex items-center gap-2"><input type="checkbox" class="bulk-cb" data-page="groups" data-id="${g.id}" onchange="bulkToggleOne('groups', ${g.id}, this.checked)"> ${escapeHtml(g.name)}</h3>
             <span class="badge ${g.status === "active" ? "badge-success" : "badge-neutral"}">${g.status === "active" ? "Ativo" : "Inativo"}</span>
           </div>
           ${g.category ? `<div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">${escapeHtml(g.category)}</div>` : ""}
@@ -1229,6 +1235,7 @@ async function renderGroups() {
         </div>`).join("");
     }
     rerunLucide();
+    if (typeof syncBulkCheckboxes === "function") syncBulkCheckboxes("groups");
   } catch (e) { console.error("[groups]", e); }
 }
 
@@ -1619,10 +1626,11 @@ function applyUsersFilter() {
   const tbody = $("#users-tbody");
   if (!tbody) return;
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12 text-slate-500"><i data-lucide="users-x" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Nenhum utilizador encontrado.</p></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-500"><i data-lucide="users-x" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i><p class="text-sm">Nenhum utilizador encontrado.</p></td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(u => `
       <tr class="cursor-pointer" onclick="location.hash='#/user-detail?id=${u.id}'" ${u.id === state.user.id ? 'style="background:#EBF7FA"' : ""}>
+        <td onclick="event.stopPropagation()"><input type="checkbox" class="bulk-cb" data-page="users" data-id="${u.id}" onchange="bulkToggleOne('users', ${u.id}, this.checked)"></td>
         <td>
           <div class="flex items-center gap-3">
             ${avatarHtml(u.avatar_initials)}
@@ -1647,6 +1655,7 @@ function applyUsersFilter() {
       </tr>`).join("");
   }
   rerunLucide();
+  if (typeof syncBulkCheckboxes === "function") syncBulkCheckboxes("users");
 }
 
 /* ============ USER DETAIL ============ */
