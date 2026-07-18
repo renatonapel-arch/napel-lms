@@ -226,6 +226,62 @@ def delete_course(course_id: int, db: Session = Depends(get_db), _: User = Depen
     db.commit()
 
 
+@app.post("/api/courses/import", response_model=schemas.CourseImportResult)
+def import_courses(data: schemas.CourseImportRequest, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Importa cursos em lote (CSV/JSON já parseados pelo front). Valida tudo antes de criar
+    qualquer coisa — se uma linha falhar, nada é criado (tudo ou nada)."""
+    existing_categories = {c.name for c in db.query(Category).all()}
+    existing_codes = {c[0] for c in db.query(Course.code).filter(Course.code.isnot(None)).all()}
+    seen_codes = set()
+    categories_to_create = set()
+    errors: List[dict] = []
+    rows_valid = []
+    for i, row in enumerate(data.courses):
+        row_num = i + 1
+        name = (row.name or "").strip()
+        if not (3 <= len(name) <= 200):
+            errors.append({"row": row_num, "error": "nome obrigatório (3 a 200 caracteres)"}); continue
+        category = (row.category or "Geral").strip() or "Geral"
+        if category not in existing_categories and category not in categories_to_create:
+            if data.create_missing:
+                categories_to_create.add(category)
+            else:
+                errors.append({"row": row_num, "error": f"categoria '{category}' não existe"}); continue
+        status_v = (row.status or "draft").strip().lower() or "draft"
+        if status_v not in ("active", "draft", "archived"):
+            errors.append({"row": row_num, "error": f"status inválido: '{row.status}'"}); continue
+        code = (row.code or "").strip() or None
+        if code:
+            if code in existing_codes or code in seen_codes:
+                errors.append({"row": row_num, "error": f"código '{code}' já em uso"}); continue
+            seen_codes.add(code)
+        rows_valid.append({"name": name, "category": category, "description": row.description or "", "status": status_v, "code": code})
+
+    if errors:
+        return schemas.CourseImportResult(created=[], errors=[schemas.CourseImportError(**e) for e in errors])
+
+    created_courses = []
+    try:
+        for cat_name in categories_to_create:
+            slug = _slugify(cat_name)
+            if not db.query(Category).filter((Category.name == cat_name) | (Category.slug == slug)).first():
+                db.add(Category(name=cat_name, slug=slug))
+        for row in rows_valid:
+            course = Course(name=row["name"], code=row["code"], category=row["category"],
+                             description=row["description"], status=row["status"], instructor_id=user.id)
+            db.add(course)
+            created_courses.append(course)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(400, "erro ao importar — nenhum curso foi criado")
+
+    return schemas.CourseImportResult(
+        created=[course_out_with_counts(db, c) for c in created_courses],
+        errors=[],
+    )
+
+
 # ============ UNITS ============
 @app.get("/api/courses/{course_id}/units", response_model=List[schemas.UnitOut])
 def list_units(course_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):

@@ -1030,6 +1030,209 @@ async function exportUserCoursesCsv(userId) {
   })), ["enrollment_id","course_id","role","matriculado_em","concluido_em","progresso_pct"]);
 }
 
+/* ============ IMPORTAR CURSOS — wizard 3 passos (Onda 3, item 3.4) ============ */
+let importState = { step: 1, rows: [], results: null, fileName: "" };
+
+function downloadImportTemplate() {
+  exportCsv("napel-lms-template-importacao-cursos.csv", [{
+    name: "Nome do curso", category: "Geral", description: "Descrição opcional", status: "draft", code: "COD-001",
+  }], ["name", "category", "description", "status", "code"]);
+}
+
+function parseCsvText(text) {
+  text = text.replace(/^﻿/, "");
+  const rows = [];
+  let i = 0, field = "", row = [], inQuotes = false;
+  const pushField = () => { row.push(field); field = ""; };
+  const pushRow = () => { pushField(); rows.push(row); row = []; };
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if (ch === '"') { inQuotes = true; i++; continue; }
+    if (ch === ",") { pushField(); i++; continue; }
+    if (ch === "\r") { i++; continue; }
+    if (ch === "\n") { pushRow(); i++; continue; }
+    field += ch; i++;
+  }
+  if (field !== "" || row.length > 0) pushRow();
+  const dataRows = rows.filter(r => r.some(c => c.trim() !== ""));
+  if (dataRows.length < 2) return [];
+  const headers = dataRows[0].map(h => h.trim().toLowerCase());
+  return dataRows.slice(1).map(r => {
+    const obj = {};
+    headers.forEach((h, idx) => obj[h] = (r[idx] || "").trim());
+    return obj;
+  });
+}
+
+function parseJsonText(text) {
+  const parsed = JSON.parse(text);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && Array.isArray(parsed.courses)) return parsed.courses;
+  throw new Error("JSON precisa ser um array de cursos ou {courses: [...]}");
+}
+
+function validateImportRows(rawRows) {
+  const existingCodes = new Set((coursesAllCache || []).map(c => c.code).filter(Boolean));
+  const seenCodes = new Set();
+  return rawRows.map((r, idx) => {
+    const name = String(r.name || "").trim();
+    const status = String(r.status || "draft").trim().toLowerCase() || "draft";
+    const code = String(r.code || "").trim() || null;
+    const category = String(r.category || "Geral").trim() || "Geral";
+    let error = null;
+    if (!(name.length >= 3 && name.length <= 200)) error = "nome obrigatório (3 a 200 caracteres)";
+    else if (!["active", "draft", "archived"].includes(status)) error = `status inválido: '${r.status}'`;
+    else if (code && (existingCodes.has(code) || seenCodes.has(code))) error = `código '${code}' já em uso`;
+    if (!error && code) seenCodes.add(code);
+    return { row: idx + 1, name, category, description: r.description || "", status, code, error };
+  });
+}
+
+function importStepUploadHtml() {
+  return `
+    <div id="imp-drop" style="border:2px dashed #CFDEE7;border-radius:8px;padding:30px 20px;text-align:center;margin-bottom:14px;cursor:pointer">
+      <div style="font-size:13px;color:#64748B;margin-bottom:12px">Arraste um arquivo <strong>.csv</strong> ou <strong>.json</strong> aqui, ou clique para escolher</div>
+      <button type="button" id="imp-choose-btn" style="padding:8px 18px;background:#113C58;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer">Escolher arquivo</button>
+      <input type="file" id="imp-file-input" accept=".csv,.json" style="display:none">
+    </div>
+    <div style="text-align:center">
+      <a href="#" id="imp-template-link" style="font-size:12px;color:#113C58;text-decoration:underline">Baixar template CSV</a>
+    </div>`;
+}
+
+function importStepPreviewHtml() {
+  const rows = importState.rows;
+  const validCount = rows.filter(r => !r.error).length;
+  return `
+    <div style="font-size:12px;color:#64748B;margin-bottom:10px">${importState.fileName} · ${rows.length} linha(s) · <strong style="color:#059669">${validCount} válida(s)</strong>${rows.length - validCount > 0 ? ` · <strong style="color:#DC2626">${rows.length - validCount} com erro</strong>` : ""}</div>
+    <div style="max-height:320px;overflow:auto;border:1px solid #E4EEF3;border-radius:6px">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#FAFCFD;position:sticky;top:0">
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #E4EEF3">#</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #E4EEF3">Nome</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #E4EEF3">Categoria</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #E4EEF3">Status</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #E4EEF3">Código</th>
+          <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #E4EEF3">Situação</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr style="background:${r.error ? "#FEF2F2" : "#F0FDF4"}">
+            <td style="padding:5px 8px;border-bottom:1px solid #F1F5F9">${r.row}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #F1F5F9">${escapeHtml(r.name)}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #F1F5F9">${escapeHtml(r.category)}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #F1F5F9">${escapeHtml(r.status)}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #F1F5F9">${escapeHtml(r.code || "—")}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #F1F5F9;font-weight:600;color:${r.error ? "#DC2626" : "#059669"}">${r.error ? escapeHtml(r.error) : "OK"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button type="button" id="imp-back-btn" style="padding:8px 16px;background:white;border:1px solid #CFDEE7;border-radius:6px;color:#113C58;cursor:pointer">Voltar</button>
+      <button type="button" id="imp-confirm-btn" ${validCount === 0 ? "disabled" : ""} style="padding:8px 18px;background:#113C58;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;opacity:${validCount === 0 ? "0.5" : "1"}">Confirmar ${validCount} curso(s) válido(s)</button>
+    </div>`;
+}
+
+function importStepResultHtml() {
+  const res = importState.results;
+  return `
+    <div style="text-align:center;padding:10px 0 18px">
+      <div style="font-size:32px;font-weight:700;color:#059669">${res.created.length}</div>
+      <div style="font-size:13px;color:#64748B">curso(s) criado(s) com sucesso</div>
+    </div>
+    ${res.errors.length ? `
+      <div style="font-size:12px;font-weight:600;color:#DC2626;margin-bottom:6px">Erros (${res.errors.length}):</div>
+      <div style="max-height:200px;overflow:auto;border:1px solid #FEE2E2;border-radius:6px;background:#FEF2F2;padding:8px">
+        ${res.errors.map(e => `<div style="font-size:12px;color:#991B1B;padding:2px 0">Linha ${e.row}: ${escapeHtml(e.error)}</div>`).join("")}
+      </div>` : ""}
+    <div style="display:flex;justify-content:flex-end;margin-top:16px">
+      <button type="button" id="imp-close-btn" style="padding:8px 18px;background:#113C58;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer">Fechar</button>
+    </div>`;
+}
+
+function renderImportModalBody() {
+  const body = document.getElementById("acts-modal-body");
+  if (!body) return;
+  const titles = { 1: "Importar cursos — enviar arquivo", 2: "Importar cursos — conferir", 3: "Importar cursos — resultado" };
+  document.getElementById("acts-modal-title").textContent = titles[importState.step];
+  if (importState.step === 1) body.innerHTML = importStepUploadHtml();
+  else if (importState.step === 2) body.innerHTML = importStepPreviewHtml();
+  else body.innerHTML = importStepResultHtml();
+  bindImportModalEvents();
+}
+
+function bindImportModalEvents() {
+  if (importState.step === 1) {
+    const drop = document.getElementById("imp-drop");
+    const fileInput = document.getElementById("imp-file-input");
+    const openPicker = () => fileInput.click();
+    document.getElementById("imp-choose-btn").onclick = openPicker;
+    drop.onclick = openPicker;
+    drop.ondragover = (e) => { e.preventDefault(); drop.style.background = "#F0F9FF"; };
+    drop.ondragleave = () => { drop.style.background = ""; };
+    drop.ondrop = (e) => {
+      e.preventDefault(); drop.style.background = "";
+      if (e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]);
+    };
+    fileInput.onchange = () => { if (fileInput.files[0]) handleImportFile(fileInput.files[0]); };
+    document.getElementById("imp-template-link").onclick = (e) => { e.preventDefault(); downloadImportTemplate(); };
+  } else if (importState.step === 2) {
+    document.getElementById("imp-back-btn").onclick = () => { importState.step = 1; renderImportModalBody(); };
+    document.getElementById("imp-confirm-btn").onclick = confirmImportCourses;
+  } else if (importState.step === 3) {
+    document.getElementById("imp-close-btn").onclick = () => hideModal();
+  }
+}
+
+async function handleImportFile(file) {
+  try {
+    const text = await file.text();
+    const isJson = /\.json$/i.test(file.name);
+    const rawRows = isJson ? parseJsonText(text) : parseCsvText(text);
+    if (!rawRows.length) throw new Error("nenhuma linha encontrada no arquivo");
+    if (!coursesAllCache) coursesAllCache = await api("/api/courses").catch(() => []);
+    importState.fileName = file.name;
+    importState.rows = validateImportRows(rawRows);
+    importState.step = 2;
+    renderImportModalBody();
+  } catch (e) {
+    alert("Erro ao ler arquivo: " + e.message);
+  }
+}
+
+async function confirmImportCourses() {
+  const btn = document.getElementById("imp-confirm-btn");
+  btn.disabled = true; btn.textContent = "Importando…";
+  try {
+    const validRows = importState.rows.filter(r => !r.error);
+    const payload = {
+      courses: validRows.map(r => ({ name: r.name, category: r.category, description: r.description, status: r.status, code: r.code })),
+      create_missing: true,
+    };
+    const res = await api("/api/courses/import", { method: "POST", body: JSON.stringify(payload) });
+    importState.results = res;
+    importState.step = 3;
+    renderImportModalBody();
+    if (res.created.length && typeof renderCourses === "function") await renderCourses();
+  } catch (e) {
+    alert("Erro ao importar: " + e.message);
+    btn.disabled = false; btn.textContent = "Confirmar";
+  }
+}
+
+function openImportCoursesModal() {
+  importState = { step: 1, rows: [], results: null, fileName: "" };
+  showModal({ title: "Importar cursos — enviar arquivo", hideFooter: true, bodyHtml: importStepUploadHtml() });
+  bindImportModalEvents();
+}
+
 /* ============ DELEGATION ============ */
 document.addEventListener("click", async (e) => {
   const t = e.target.closest("[data-action]");
@@ -1056,6 +1259,7 @@ document.addEventListener("click", async (e) => {
     case "delete-group": return deleteGroup(id);
     case "create-category": return openCreateCategory();
     case "manage-categories": return openCategoriesModal();
+    case "import-courses": return openImportCoursesModal();
     case "edit-user": return openEditUser(id || currentUserIdFromHash());
     case "edit-profile": return openEditProfile();
     case "enroll-self": return selfEnroll(id || currentCourseIdFromHash());

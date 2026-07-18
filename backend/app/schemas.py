@@ -103,6 +103,29 @@ class CourseUpdate(BaseModel):
     sequential: Optional[bool] = None
 
 
+class CourseImportRow(BaseModel):
+    name: str
+    category: Optional[str] = None
+    description: Optional[str] = ""
+    status: Optional[str] = "draft"
+    code: Optional[str] = None
+
+
+class CourseImportRequest(BaseModel):
+    courses: List[CourseImportRow]
+    create_missing: bool = True
+
+
+class CourseImportError(BaseModel):
+    row: int
+    error: str
+
+
+class CourseImportResult(BaseModel):
+    created: List[CourseOut]
+    errors: List[CourseImportError]
+
+
 # === unit ===
 class UnitOut(BaseModel):
     id: int
