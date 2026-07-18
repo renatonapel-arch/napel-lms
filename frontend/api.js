@@ -770,7 +770,7 @@ async function renderAccount() {
       t.addEventListener("click", () => {
         tabs.forEach(x => x.classList.remove("active"));
         t.classList.add("active");
-        renderAccountTab(t.dataset.accountTab);
+        renderAccountTab(t.dataset.accountTab).catch(e => console.error("[account-tab]", e));
       });
     });
     await renderAccountTab(activeTab);
@@ -780,6 +780,7 @@ async function renderAccount() {
 async function renderAccountTab(tab) {
   const content = $("#account-content");
   if (!content) return;
+  try {
   if (tab === "portal") {
     const s = await api("/api/settings/portal");
     content.innerHTML = `
@@ -872,6 +873,13 @@ async function renderAccountTab(tab) {
           <button onclick="if(confirm('ZERAR TODO O BANCO? Apaga users, cursos, progressos. Só o admin renato será mantido.')){fetch('${API_BASE}/api/admin/reset-database?token=napel2026', {method:'POST'}).then(()=>{toast('Banco zerado');setTimeout(()=>location.reload(),1500);})}" class="px-4 py-2 bg-danger-bg text-danger-fg border border-danger-bd rounded-md text-sm font-semibold">Reset banco de dados</button>
         </div>
       </div>`;
+  }
+  } catch (e) {
+    console.error("[account-tab]", e);
+    content.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center">
+      <p class="text-sm text-slate-500 mb-3">Não foi possível carregar esta aba.</p>
+      <button onclick="renderAccountTab('${tab}')" class="px-3 py-1.5 border border-borderd rounded-md text-xs font-semibold text-naval hover:bg-gelo">Tentar de novo</button>
+    </div>`;
   }
   rerunLucide();
 }
