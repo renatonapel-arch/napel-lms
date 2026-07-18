@@ -379,6 +379,16 @@ def user_progress(user_id: int, db: Session = Depends(get_db), _: User = Depends
         .order_by(Progress.completed_at.desc().nullslast())
         .all()
     )
+    def _kind(u: Unit) -> str:
+        """Rótulo real da unidade: type=text pode embutir <video>/<audio> (importação da Academia)."""
+        if u.type != "text":
+            return u.type  # video/quiz/pdf/audio/scorm ficam como vieram
+        md = ((u.content or {}).get("text_md") or "")
+        has_v, has_a = "<video" in md, "<audio" in md
+        if has_v and has_a: return "videoaula"   # vídeo + áudio + apostila (padrão Academia)
+        if has_v:           return "video"
+        if has_a:           return "audio"
+        return "text"
     return [{
         "unit_id": u.id,
         "course_id": c.id,
@@ -386,6 +396,7 @@ def user_progress(user_id: int, db: Session = Depends(get_db), _: User = Depends
         "section": u.section,
         "title": u.title,
         "type": u.type,
+        "kind": _kind(u),
         "completion_pct": p.completion_pct or 0,
         "completed_at": p.completed_at.isoformat() if p.completed_at else None,
         "score": p.score,
