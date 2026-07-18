@@ -528,6 +528,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
     unit = db.query(Unit).filter(Unit.id == unit_id).first()
     if not unit or unit.type != "quiz":
         raise HTTPException(404, "quiz unit not found")
+    _require_enrolled(db, user, unit.course_id)
     questions = (unit.content or {}).get("questions", [])
     if q_idx < 0 or q_idx >= len(questions):
         raise HTTPException(400, f"q_idx fora de range (0..{len(questions)-1})")
@@ -582,6 +583,9 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
             nxt = db.query(Unit).filter(
                 Unit.course_id == unit.course_id, Unit.order_index > unit.order_index
             ).order_by(Unit.order_index).first()
+            # blindagem defensiva: next_unit_id NUNCA pode ser de outro curso
+            assert nxt is None or nxt.course_id == unit.course_id, \
+                f"BUG: next_unit_id do curso {nxt.course_id} vazou em quiz do curso {unit.course_id}"
             next_uid = nxt.id if nxt else None
             # completou o curso? checa se TODAS as units estão concluídas (não só quiz final)
             db.flush()  # garante que o completion_pct=100 do quiz esteja visível na query abaixo
@@ -615,6 +619,7 @@ def quiz_reset(unit_id: int, db: Session = Depends(get_db), user: User = Depends
     unit = db.query(Unit).filter(Unit.id == unit_id, Unit.type == "quiz").first()
     if not unit:
         raise HTTPException(404, "quiz não encontrado")
+    _require_enrolled(db, user, unit.course_id)
     max_attempts = (unit.content or {}).get("max_attempts", 3)
     used = db.query(func.count(QuizAttempt.id)).filter(
         QuizAttempt.user_id == user.id, QuizAttempt.unit_id == unit_id
@@ -668,6 +673,7 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
     unit = db.query(Unit).filter(Unit.id == data.unit_id).first()
     if not unit:
         raise HTTPException(404, "unit not found")
+    _require_enrolled(db, user, unit.course_id)
     p = db.query(Progress).filter(Progress.user_id == user.id, Progress.unit_id == data.unit_id).first()
     if not p:
         p = Progress(user_id=user.id, unit_id=data.unit_id)
@@ -700,6 +706,17 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
     db.commit()
     db.refresh(p)
     return p
+
+
+def _require_enrolled(db: Session, user: User, course_id: int):
+    """Bloqueia ação em curso onde o aluno não está matriculado (admin bypassa)."""
+    if user.user_type in ("SuperAdmin", "Admin"):
+        return
+    ok = db.query(Enrollment).filter(
+        Enrollment.user_id == user.id, Enrollment.course_id == course_id
+    ).first()
+    if not ok:
+        raise HTTPException(403, "aluno não matriculado neste curso")
 
 
 def grant_badge_if_missing(db: Session, user_id: int, badge_name: str):
