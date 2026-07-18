@@ -4,11 +4,18 @@ Nunca improvisar SMTP/SendGrid/Resend aqui — a regra da Napel é usar sempre o
 
 Onda 6 — itens 6.2 (link de reset de senha) e 6.3 (boas-vindas / matrícula / conclusão / certificado).
 """
+import html as html_esc
 import json
 import os
 import threading
 import urllib.request
 import urllib.error
+
+
+def _e(s) -> str:
+    """Escapa HTML em campos vindos do banco (name/course_name/login) antes de interpolar
+    nos templates — nome com '<img onerror>' vira texto, não markup executável no cliente."""
+    return html_esc.escape(str(s or ""), quote=True)
 
 MAILER_URL = "https://mailer.napel.com.br/send"
 MAILER_TOKEN = os.getenv("MAILER_TOKEN", "")
@@ -94,7 +101,7 @@ def _btn(href: str, label: str) -> str:
 def reset_password_email(name: str, link: str) -> tuple[str, str]:
     subject = "Napel LMS · Redefinição de senha"
     body = f"""
-      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Olá, {name}</h2>
+      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Olá, {_e(name)}</h2>
       <p style="color:#334155;font-size:14px;line-height:1.6;">
         Recebemos um pedido pra redefinir sua senha no Napel LMS. Clique no botão abaixo pra escolher uma nova senha.
         Este link expira em <b>30 minutos</b>.
@@ -108,13 +115,13 @@ def reset_password_email(name: str, link: str) -> tuple[str, str]:
 def welcome_email(name: str, login: str, password: str) -> tuple[str, str]:
     subject = "Bem-vindo(a) à Napel LMS"
     body = f"""
-      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Bem-vindo(a), {name}!</h2>
+      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Bem-vindo(a), {_e(name)}!</h2>
       <p style="color:#334155;font-size:14px;line-height:1.6;">
         Sua conta no Napel LMS — nossa plataforma de treinamento — foi criada. Aqui estão seus dados de acesso:
       </p>
       <table style="width:100%;background:#F0F7FA;border-radius:6px;margin:16px 0;">
-        <tr><td style="padding:10px 16px;font-size:13px;color:#64748B;">Login</td><td style="padding:10px 16px;font-size:14px;font-weight:700;color:#113C58;">{login}</td></tr>
-        <tr><td style="padding:10px 16px;font-size:13px;color:#64748B;">Senha inicial</td><td style="padding:10px 16px;font-size:14px;font-weight:700;color:#113C58;font-family:monospace;">{password}</td></tr>
+        <tr><td style="padding:10px 16px;font-size:13px;color:#64748B;">Login</td><td style="padding:10px 16px;font-size:14px;font-weight:700;color:#113C58;">{_e(login)}</td></tr>
+        <tr><td style="padding:10px 16px;font-size:13px;color:#64748B;">Senha inicial</td><td style="padding:10px 16px;font-size:14px;font-weight:700;color:#113C58;font-family:monospace;">{_e(password)}</td></tr>
       </table>
       <p style="color:#334155;font-size:14px;line-height:1.6;">Recomendamos trocar a senha no primeiro acesso, em Conta &gt; Alterar senha.</p>
       <p style="margin:24px 0;">{_btn(PORTAL_URL, "Acessar o portal")}</p>
@@ -124,11 +131,11 @@ def welcome_email(name: str, login: str, password: str) -> tuple[str, str]:
 
 def enrollment_email(name: str, course_name: str, course_id: int) -> tuple[str, str]:
     subject = f"Você foi matriculado no curso {course_name}"
-    link = f"{PORTAL_URL}/#/course-detail?id={course_id}"
+    link = f"{PORTAL_URL}/#/course-detail?id={int(course_id)}"
     body = f"""
-      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Olá, {name}</h2>
+      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Olá, {_e(name)}</h2>
       <p style="color:#334155;font-size:14px;line-height:1.6;">
-        Você acabou de ser matriculado(a) no curso <b>{course_name}</b> no Napel LMS.
+        Você acabou de ser matriculado(a) no curso <b>{_e(course_name)}</b> no Napel LMS.
       </p>
       <p style="margin:24px 0;">{_btn(link, "Começar o curso")}</p>
     """
@@ -137,12 +144,12 @@ def enrollment_email(name: str, course_name: str, course_id: int) -> tuple[str, 
 
 def completion_email(name: str, course_name: str, grade) -> tuple[str, str]:
     subject = f"🎓 Parabéns! Você concluiu o curso {course_name}"
-    grade_html = f'<p style="color:#334155;font-size:14px;">Sua nota final: <b>{grade}%</b></p>' if grade is not None else ""
+    grade_html = f'<p style="color:#334155;font-size:14px;">Sua nota final: <b>{_e(grade)}%</b></p>' if grade is not None else ""
     link = f"{PORTAL_URL}/#/profile"
     body = f"""
-      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Parabéns, {name}!</h2>
+      <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Parabéns, {_e(name)}!</h2>
       <p style="color:#334155;font-size:14px;line-height:1.6;">
-        Você concluiu com sucesso o curso <b>{course_name}</b>.
+        Você concluiu com sucesso o curso <b>{_e(course_name)}</b>.
       </p>
       {grade_html}
       <p style="margin:24px 0;">{_btn(link, "Ver meu perfil")}</p>
@@ -152,11 +159,11 @@ def completion_email(name: str, course_name: str, grade) -> tuple[str, str]:
 
 def certificate_email(name: str, course_name: str, cert_id: int) -> tuple[str, str]:
     subject = f"Seu certificado do curso {course_name} está pronto"
-    link = f"{API_URL}/api/certificates/{cert_id}/html"
+    link = f"{API_URL}/api/certificates/{int(cert_id)}/html"
     body = f"""
       <h2 style="color:#113C58;font-size:18px;margin:0 0 12px;">Certificado emitido</h2>
       <p style="color:#334155;font-size:14px;line-height:1.6;">
-        {name}, seu certificado de conclusão do curso <b>{course_name}</b> já está disponível.
+        {_e(name)}, seu certificado de conclusão do curso <b>{_e(course_name)}</b> já está disponível.
       </p>
       <p style="margin:24px 0;">{_btn(link, "Baixar certificado")}</p>
     """
