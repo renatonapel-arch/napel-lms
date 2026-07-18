@@ -1214,8 +1214,9 @@ async function renderGroups() {
         <div class="bg-white border border-borderd rounded-lg p-5 hover:shadow-md transition-shadow">
           <div class="flex items-start justify-between mb-2">
             <h3 class="text-base font-semibold text-naval line-clamp-1">${escapeHtml(g.name)}</h3>
-            <span class="badge ${g.status === "active" ? "badge-success" : "badge-neutral"}">${g.status}</span>
+            <span class="badge ${g.status === "active" ? "badge-success" : "badge-neutral"}">${g.status === "active" ? "Ativo" : "Inativo"}</span>
           </div>
+          ${g.category ? `<div class="text-[11px] font-semibold uppercase tracking-wider text-ceu mb-1.5">${escapeHtml(g.category)}</div>` : ""}
           <p class="text-xs text-slate-500 line-clamp-2 mb-4 min-h-[32px]">${escapeHtml(g.description || "—")}</p>
           <div class="flex items-center gap-4 text-xs text-slate-600 mb-4">
             <span class="flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> <strong class="text-naval">${g.users_count}</strong> membros</span>

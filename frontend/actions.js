@@ -823,15 +823,20 @@ async function openBulkEnrollModal(courseId) {
 
 /* ============ GROUPS ============ */
 async function openCreateGroup() {
+  const cats = await api("/api/categories").catch(() => []);
+  const catChoices = [{ value: "", label: "Sem categoria" }, ...cats.map(c => ({ value: c.name, label: c.name }))];
   showModal({
     title: "Criar grupo",
     bodyHtml:
-      fld("g-name", "Nome do grupo *", { placeholder: "Ex: Vendedores MGA" }) +
-      fld("g-description", "Descrição", { required: false, rows: 2, placeholder: "Pra que serve este grupo?" }),
+      fld("g-name", "Nome do grupo *", { placeholder: "Ex: Vendedores MGA", hint: "3 a 100 caracteres" }) +
+      fld("g-description", "Descrição", { required: false, rows: 2, placeholder: "Pra que serve este grupo?" }) +
+      fld("g-category", "Categoria", { choices: catChoices }) +
+      fld("g-status", "Status", { choices: [{ value: "active", label: "Ativo" }, { value: "inactive", label: "Inativo" }] }),
     okText: "Criar grupo",
     onOk: async () => {
       await api("/api/groups", { method: "POST", body: JSON.stringify({
         name: val("g-name"), description: val("g-description"),
+        category: val("g-category"), status: val("g-status"),
       })});
       toast("Grupo criado ✓");
       if (typeof renderGroups === "function") await renderGroups();

@@ -285,6 +285,7 @@ class GroupOut(BaseModel):
     id: int
     name: str
     description: str = ""
+    category: str = ""
     status: str = "active"
     users_count: int = 0
     courses_count: int = 0
@@ -294,13 +295,16 @@ class GroupOut(BaseModel):
 
 
 class GroupCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=3, max_length=100)
     description: str = ""
+    category: str = ""
+    status: str = "active"
 
 
 class GroupUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=3, max_length=100)
     description: Optional[str] = None
+    category: Optional[str] = None
     status: Optional[str] = None
 
 

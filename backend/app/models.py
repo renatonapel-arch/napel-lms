@@ -127,6 +127,7 @@ class Group(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(120), unique=True, nullable=False)
     description = Column(Text, default="")
+    category = Column(String(80), default="")
     status = Column(String(16), default="active")
     created_at = Column(DateTime, default=datetime.utcnow)
 
