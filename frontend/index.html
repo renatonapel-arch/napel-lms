@@ -587,9 +587,53 @@ tailwind.config = {
         <select class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
           <option>Todos os status</option><option>Ativo</option><option>Rascunho</option><option>Arquivado</option>
         </select>
-        <button class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm">
+        <button id="courses-more-filters-btn" onclick="toggleAdvancedCourseFilters()" class="h-10 px-3 border border-borderd rounded-md bg-white text-naval hover:bg-gelo flex items-center gap-2 text-sm">
           <i data-lucide="filter" class="w-4 h-4"></i> Mais filtros
         </button>
+      </div>
+
+      <!-- painel de filtros avançados (Onda 3, item 3.3) -->
+      <div id="courses-advanced-filters" class="hidden bg-white border border-borderd rounded-lg p-4 mb-4">
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label class="block text-xs font-semibold text-naval mb-1">Instrutor</label>
+            <select id="caf-instructor" class="w-full h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-naval mb-1">Criado de</label>
+            <input type="date" id="caf-date-from" class="w-full h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-naval mb-1">Criado até</label>
+            <input type="date" id="caf-date-to" class="w-full h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-naval mb-1">Certificado</label>
+            <select id="caf-cert" class="w-full h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+              <option value="">Todos</option>
+              <option value="yes">Com certificado</option>
+              <option value="no">Sem certificado</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-naval mb-1">Duração mín. (min)</label>
+            <input type="number" id="caf-dur-min" min="0" placeholder="Ex: 10" class="w-full h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-naval mb-1">Duração máx. (min)</label>
+            <input type="number" id="caf-dur-max" min="0" placeholder="Ex: 60" class="w-full h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+          </div>
+          <div class="md:col-span-2 lg:col-span-2">
+            <label class="block text-xs font-semibold text-naval mb-1">Categorias</label>
+            <div id="caf-categories" class="flex flex-wrap gap-3 pt-1.5"></div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-borderd">
+          <button onclick="clearAdvancedCourseFilters()" class="px-4 py-2 border border-borderd rounded-md text-sm text-naval hover:bg-gelo">Limpar filtros</button>
+          <button onclick="applyAdvancedCourseFilters()" class="px-4 py-2 bg-naval text-white rounded-md text-sm font-semibold hover:opacity-90">Aplicar</button>
+        </div>
       </div>
 
       <!-- grid de cards -->
@@ -2131,6 +2175,6 @@ tailwind.config = {
   });
 </script>
 <script src="api.js?v=41"></script>
-<script src="actions.js?v=14"></script>
+<script src="actions.js?v=15"></script>
 </body>
 </html>

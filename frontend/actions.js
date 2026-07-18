@@ -605,15 +605,25 @@ async function navUnit(direction) {
 
 /* ============ FILTROS DE CURSOS ============ */
 let coursesAllCache = null;
+let advancedCourseFilters = { instructor: "", dateFrom: "", dateTo: "", durMin: "", durMax: "", cert: "", categories: [] };
 function getFilteredCourses() {
   if (!coursesAllCache) return [];
   const search = document.querySelector("#page-courses input[type=search]")?.value.toLowerCase() || "";
   const cat = document.getElementById("courses-category-filter")?.value || "";
   const status = document.querySelector("#page-courses select:nth-of-type(2)")?.value || "";
+  const af = advancedCourseFilters;
   return coursesAllCache.filter(c => {
     if (search && !(c.name.toLowerCase().includes(search) || (c.code || "").toLowerCase().includes(search))) return false;
     if (cat && !cat.startsWith("Todas") && c.category !== cat) return false;
     if (status && !status.startsWith("Todos") && c.status !== status.toLowerCase()) return false;
+    if (af.instructor && String(c.instructor_id) !== af.instructor) return false;
+    if (af.dateFrom && (c.created_at || "").slice(0, 10) < af.dateFrom) return false;
+    if (af.dateTo && (c.created_at || "").slice(0, 10) > af.dateTo) return false;
+    if (af.durMin !== "" && (c.duration_min || 0) < Number(af.durMin)) return false;
+    if (af.durMax !== "" && (c.duration_min || 0) > Number(af.durMax)) return false;
+    if (af.cert === "yes" && !c.issue_certificate) return false;
+    if (af.cert === "no" && c.issue_certificate) return false;
+    if (af.categories.length && !af.categories.includes(c.category)) return false;
     return true;
   });
 }
@@ -625,6 +635,60 @@ async function applyCoursesFilter() {
 function goToCoursesPage(page) {
   coursesPage = page;
   renderCoursesList(getFilteredCourses());
+}
+
+/* ============ MAIS FILTROS — painel avançado (Onda 3, item 3.3) ============ */
+async function toggleAdvancedCourseFilters() {
+  const panel = document.getElementById("courses-advanced-filters");
+  if (!panel) return;
+  const opening = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden");
+  if (opening && !panel.dataset.populated) {
+    panel.dataset.populated = "1";
+    await populateAdvancedCourseFilterOptions();
+  }
+}
+
+async function populateAdvancedCourseFilterOptions() {
+  const [users, cats] = await Promise.all([
+    api("/api/users").catch(() => []),
+    api("/api/categories").catch(() => []),
+  ]);
+  const instructors = users.filter(u => ["Instructor-Type", "SuperAdmin", "Admin"].includes(u.user_type));
+  const instSelect = document.getElementById("caf-instructor");
+  if (instSelect) {
+    instSelect.innerHTML = `<option value="">Todos</option>` + instructors.map(u =>
+      `<option value="${u.id}">${escapeHtml(u.name)} ${escapeHtml(u.surname || "")}</option>`).join("");
+  }
+  const catBox = document.getElementById("caf-categories");
+  if (catBox) {
+    catBox.innerHTML = cats.map(c => `
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#113C58;cursor:pointer">
+        <input type="checkbox" class="caf-cat-check" value="${escapeHtml(c.name)}"> ${escapeHtml(c.name)}
+      </label>`).join("");
+  }
+}
+
+function applyAdvancedCourseFilters() {
+  advancedCourseFilters = {
+    instructor: val("caf-instructor"),
+    dateFrom: document.getElementById("caf-date-from")?.value || "",
+    dateTo: document.getElementById("caf-date-to")?.value || "",
+    durMin: document.getElementById("caf-dur-min")?.value || "",
+    durMax: document.getElementById("caf-dur-max")?.value || "",
+    cert: document.getElementById("caf-cert")?.value || "",
+    categories: Array.from(document.querySelectorAll(".caf-cat-check:checked")).map(c => c.value),
+  };
+  applyCoursesFilter();
+}
+
+function clearAdvancedCourseFilters() {
+  ["caf-instructor", "caf-date-from", "caf-date-to", "caf-dur-min", "caf-dur-max", "caf-cert"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
+  document.querySelectorAll(".caf-cat-check").forEach(c => c.checked = false);
+  advancedCourseFilters = { instructor: "", dateFrom: "", dateTo: "", durMin: "", durMax: "", cert: "", categories: [] };
+  applyCoursesFilter();
 }
 
 /* ============ EXPORT CSV ============ */
