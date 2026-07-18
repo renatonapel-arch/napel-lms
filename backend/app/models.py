@@ -146,6 +146,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(64), unique=True, nullable=False)
     slug = Column(String(64), unique=True, nullable=False)
+    color = Column(String(16), default="#7DA4C6")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

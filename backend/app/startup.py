@@ -37,6 +37,7 @@ def migrate_add_columns():
         "ALTER TABLE courses ADD COLUMN IF NOT EXISTS sequential BOOLEAN DEFAULT FALSE",
         "ALTER TABLE units ADD COLUMN IF NOT EXISTS section VARCHAR(64)",
         "ALTER TABLE progress ADD COLUMN IF NOT EXISTS data JSONB DEFAULT '{}'::jsonb",
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS color VARCHAR(16) DEFAULT '#7DA4C6'",
     ]
     with engine.connect() as c:
         for sql in mig:

@@ -839,6 +839,95 @@ async function openCreateCategory() {
   });
 }
 
+/* ============ CATEGORIAS — modal CRUD (Onda 3, item 3.1) ============ */
+function categoriesModalHtml(cats) {
+  const countOf = (name) => (coursesAllCache || []).filter(c => c.category === name).length;
+  return `
+    <div style="margin-bottom:14px;display:flex;gap:8px">
+      <input type="color" id="cat-new-color" value="#7DA4C6" style="width:40px;height:38px;border:1px solid #CFDEE7;border-radius:6px;padding:2px;cursor:pointer">
+      <input type="text" id="cat-new-name" placeholder="Nome da nova categoria" style="flex:1;padding:9px 12px;border:1px solid #CFDEE7;border-radius:6px;font-size:14px">
+      <button id="cat-add-btn" style="padding:9px 16px;background:#113C58;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;white-space:nowrap">Adicionar</button>
+    </div>
+    <div style="border:1px solid #E4EEF3;border-radius:6px;max-height:320px;overflow-y:auto">
+      ${cats.length === 0 ? '<div style="padding:20px;text-align:center;color:#94A3B8;font-size:13px">Sem categorias.</div>' : cats.map(c => `
+        <div class="cat-row" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #F1F5F9">
+          <input type="color" class="cat-color-input" value="${c.color || "#7DA4C6"}" style="width:32px;height:32px;border:1px solid #CFDEE7;border-radius:6px;padding:1px;cursor:pointer;flex-shrink:0">
+          <input type="text" class="cat-name-input" value="${escapeHtml(c.name)}" style="flex:1;padding:7px 10px;border:1px solid #E4EEF3;border-radius:6px;font-size:13px">
+          <span style="font-size:11px;color:#94A3B8;white-space:nowrap">${countOf(c.name)} curso(s)</span>
+          <button class="cat-del-btn" title="Deletar" style="padding:6px 8px;background:transparent;border:none;color:#EF4444;cursor:pointer;font-size:15px">🗑</button>
+        </div>`).join("")}
+    </div>`;
+}
+
+function refreshCategoryFilterDropdown(cats) {
+  const catFilter = document.getElementById("courses-category-filter");
+  if (catFilter) catFilter.innerHTML = `<option>Todas as categorias</option>` + cats.map(c => `<option>${escapeHtml(c.name)}</option>`).join("");
+}
+
+async function reloadCategoriesModal() {
+  const cats = await api("/api/categories");
+  const body = document.getElementById("acts-modal-body");
+  if (body) { body.innerHTML = categoriesModalHtml(cats); bindCategoriesModalEvents(); }
+  refreshCategoryFilterDropdown(cats);
+  if (typeof renderCourses === "function") await renderCourses();
+}
+
+function bindCategoriesModalEvents() {
+  const body = document.getElementById("acts-modal-body");
+  if (!body) return;
+  document.getElementById("cat-add-btn").onclick = async () => {
+    const name = val("cat-new-name");
+    if (!name) { alert("Erro: nome obrigatório"); return; }
+    const color = document.getElementById("cat-new-color").value;
+    try {
+      await api("/api/categories", { method: "POST", body: JSON.stringify({ name, color }) });
+      toast("Categoria criada ✓");
+      await reloadCategoriesModal();
+    } catch (e) { alert("Erro: " + e.message); }
+  };
+  body.querySelectorAll(".cat-row").forEach(row => {
+    const id = parseInt(row.dataset.id);
+    const origName = row.dataset.name;
+    const nameInput = row.querySelector(".cat-name-input");
+    const colorInput = row.querySelector(".cat-color-input");
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") nameInput.blur(); });
+    nameInput.addEventListener("blur", async () => {
+      const newName = nameInput.value.trim();
+      if (!newName || newName === origName) { nameInput.value = origName; return; }
+      try {
+        await api(`/api/categories/${id}`, { method: "PATCH", body: JSON.stringify({ name: newName }) });
+        toast("Categoria renomeada ✓");
+        await reloadCategoriesModal();
+      } catch (e) { alert("Erro: " + e.message); nameInput.value = origName; }
+    });
+    colorInput.addEventListener("change", async () => {
+      try {
+        await api(`/api/categories/${id}`, { method: "PATCH", body: JSON.stringify({ color: colorInput.value }) });
+        toast("Cor atualizada ✓");
+      } catch (e) { alert("Erro: " + e.message); }
+    });
+    row.querySelector(".cat-del-btn").onclick = async () => {
+      const count = (coursesAllCache || []).filter(c => c.category === origName).length;
+      const msg = count > 0
+        ? `Deletar a categoria "${origName}"? ${count} curso(s) usam ela — eles ficarão com uma categoria que não existe mais no cadastro.`
+        : `Deletar a categoria "${origName}"?`;
+      if (!confirm(msg)) return;
+      try {
+        await api(`/api/categories/${id}`, { method: "DELETE" });
+        toast("Categoria deletada");
+        await reloadCategoriesModal();
+      } catch (e) { alert("Erro: " + e.message); }
+    };
+  });
+}
+
+async function openCategoriesModal() {
+  if (!coursesAllCache) coursesAllCache = await api("/api/courses").catch(() => []);
+  const cats = await api("/api/categories");
+  showModal({ title: "Categorias de curso", hideFooter: true, bodyHtml: categoriesModalHtml(cats) });
+  bindCategoriesModalEvents();
+}
+
 async function deleteUser(userId) {
   if (!confirm("Deletar este utilizador? Todas as matrículas e progresso dele serão apagados.")) return;
   try {
@@ -900,6 +989,7 @@ document.addEventListener("click", async (e) => {
     case "edit-group": return openEditGroup(id);
     case "delete-group": return deleteGroup(id);
     case "create-category": return openCreateCategory();
+    case "manage-categories": return openCategoriesModal();
     case "edit-user": return openEditUser(id || currentUserIdFromHash());
     case "edit-profile": return openEditProfile();
     case "enroll-self": return selfEnroll(id || currentCourseIdFromHash());

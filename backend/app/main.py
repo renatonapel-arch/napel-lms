@@ -1113,8 +1113,28 @@ def create_category(data: schemas.CategoryCreate, db: Session = Depends(get_db),
     slug = _slugify(data.name)
     if db.query(Category).filter((Category.name == data.name) | (Category.slug == slug)).first():
         raise HTTPException(409, "categoria já existe")
-    c = Category(name=data.name, slug=slug)
+    c = Category(name=data.name, slug=slug, color=data.color or "#7DA4C6")
     db.add(c); db.commit(); db.refresh(c)
+    return c
+
+
+@app.patch("/api/categories/{cat_id}", response_model=schemas.CategoryOut)
+def update_category(cat_id: int, data: schemas.CategoryUpdate, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    c = db.query(Category).filter(Category.id == cat_id).first()
+    if not c: raise HTTPException(404, "category not found")
+    if data.name is not None and data.name.strip() and data.name != c.name:
+        new_name = data.name.strip()
+        slug = _slugify(new_name)
+        if db.query(Category).filter(Category.id != cat_id).filter((Category.name == new_name) | (Category.slug == slug)).first():
+            raise HTTPException(409, "categoria já existe")
+        old_name = c.name
+        c.name = new_name
+        c.slug = slug
+        # cursos referenciam categoria pelo nome — atualiza junto pra não deixar curso órfão
+        db.query(Course).filter(Course.category == old_name).update({"category": new_name})
+    if data.color is not None:
+        c.color = data.color
+    db.commit(); db.refresh(c)
     return c
 
 

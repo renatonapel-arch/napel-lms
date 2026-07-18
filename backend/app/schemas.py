@@ -307,6 +307,7 @@ class CategoryOut(BaseModel):
     id: int
     name: str
     slug: str
+    color: str = "#7DA4C6"
 
     class Config:
         from_attributes = True
@@ -314,6 +315,12 @@ class CategoryOut(BaseModel):
 
 class CategoryCreate(BaseModel):
     name: str
+    color: Optional[str] = "#7DA4C6"
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
 
 
 # === settings ===
