@@ -12,7 +12,22 @@ class LoginIn(BaseModel):
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    refresh_token: Optional[str] = None
     user: "UserOut"
+
+
+# === refresh / logout (Onda 6 — item 6.1) ===
+class RefreshIn(BaseModel):
+    refresh_token: str
+
+
+class RefreshOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class LogoutIn(BaseModel):
+    refresh_token: Optional[str] = None
 
 
 # === user ===

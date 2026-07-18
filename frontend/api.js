@@ -13,8 +13,10 @@ const API_BASE = (() => {
 
 const TOKEN_KEY = "napel_lms_token";
 const USER_KEY = "napel_lms_user";
+const REFRESH_KEY = "napel_lms_refresh";                          // Onda 6 — item 6.1
+const PENDING_URL_KEY = "napel_lms_pending_url";                  // Onda 6 — item 6.1: URL a restaurar após relogin
 const IMPERSONATE_KEY = "napel_lms_impersonate_original_token";  // guarda o token do admin enquanto personifica
-const state = { user: null, token: null };
+const state = { user: null, token: null, refresh_token: null };
 let authLoading = false;  // true enquanto o bootstrap valida o token (evita modal-por-corrida)
 
 /* ============ SSO CLAVIS ============
@@ -58,7 +60,42 @@ window.addEventListener("message", (ev) => {
 /* ============ AUTH ============ */
 function getToken() { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
-function clearAuth() { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); state.user = null; state.token = null; }
+function getRefreshToken() { return localStorage.getItem(REFRESH_KEY); }
+function clearAuth() {
+  localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); localStorage.removeItem(REFRESH_KEY);
+  state.user = null; state.token = null; state.refresh_token = null;
+}
+
+// Onda 6 — item 6.1: renovação silenciosa do access token via refresh token.
+// _refreshPromise dedupa chamadas concorrentes (várias 401 ao mesmo tempo só disparam 1 refresh).
+// OPUS_REVIEW: se o refresh falhar (token revogado/expirado), cai pro fluxo normal (modal de login);
+// se ele suceder mas a chamada original falhar de novo por outro motivo (403 etc.), não há retry infinito
+// porque api() só tenta refresh 1x por chamada (flag opts._retriedAfterRefresh).
+let _refreshPromise = null;
+async function tryRefreshToken() {
+  const rt = getRefreshToken();
+  if (!rt) return null;
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = (async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      if (!r.ok) { clearAuth(); return null; }
+      const d = await r.json();
+      setToken(d.access_token);
+      state.token = d.access_token;
+      return d.access_token;
+    } catch (_) {
+      return null;
+    } finally {
+      _refreshPromise = null;
+    }
+  })();
+  return _refreshPromise;
+}
 
 async function api(path, opts = {}) {
   const token = getToken();
@@ -66,6 +103,12 @@ async function api(path, opts = {}) {
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const r = await fetch(`${API_BASE}${path}`, { ...opts, headers });
   if (r.status === 401) {
+    // Onda 6 — item 6.1: antes de mostrar o modal de sessão expirada, tenta renovar
+    // silenciosamente 1x com o refresh token guardado. Só cai pro modal se isso falhar.
+    if (!opts._retriedAfterRefresh) {
+      const newToken = await tryRefreshToken();
+      if (newToken) return api(path, { ...opts, _retriedAfterRefresh: true });
+    }
     clearAuth();
     showLoginModal();
     throw new Error("unauthorized");
@@ -89,13 +132,26 @@ async function doLogin(login, password) {
   }
   const data = await r.json();
   setToken(data.access_token);
+  if (data.refresh_token) localStorage.setItem(REFRESH_KEY, data.refresh_token);
   localStorage.setItem(USER_KEY, JSON.stringify(data.user));
   state.token = data.access_token;
+  state.refresh_token = data.refresh_token || null;
   state.user = data.user;
   return data.user;
 }
 
-function doLogout() {
+async function doLogout() {
+  // revoga o refresh token no servidor antes de limpar localmente (best-effort — se falhar,
+  // o token expira sozinho em até 30 dias; não vale travar o logout por causa disso)
+  const rt = getRefreshToken();
+  if (rt) {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+    } catch (_) {}
+  }
   clearAuth();
   location.reload();
 }
@@ -129,6 +185,9 @@ function injectLoginModal() {
                 style="background:#113C58;color:white;font-weight:600;padding:12px;border-radius:6px;border:none;cursor:pointer;font-size:14px;margin-top:8px">
           Entrar
         </button>
+        <div style="text-align:center;margin-top:4px">
+          <a href="javascript:void(0)" id="login-forgot-link" style="font-size:12px;color:#7DA4C6;font-weight:600;text-decoration:none">Esqueci minha senha</a>
+        </div>
         <div style="text-align:center;font-size:11px;color:#94A3B8;margin-top:12px;line-height:1.6">
           Usuários demo: <code>renato</code> · <code>hudson</code> · <code>luiz</code> · <code>gilson</code><br>
           Senha padrão: <code>napel2026</code>
@@ -149,12 +208,40 @@ function injectLoginModal() {
       );
       hideLoginModal();
       await bootstrapAfterLogin(u);
+      // Onda 6 — item 6.1: se a sessão expirou no meio de uma navegação, volta pra
+      // onde o usuário estava (guardado por showLoginModal) em vez de ficar na home.
+      try {
+        const pending = sessionStorage.getItem(PENDING_URL_KEY);
+        sessionStorage.removeItem(PENDING_URL_KEY);
+        if (pending && pending !== location.hash) location.hash = pending;
+      } catch (_) {}
     } catch (err) {
       errBox.textContent = err.message;
       errBox.style.display = "block";
     } finally {
       btn.disabled = false; btn.textContent = "Entrar";
     }
+  });
+  document.getElementById("login-forgot-link").addEventListener("click", () => openForgotPasswordModal());
+}
+
+/* ============ ESQUECI MINHA SENHA (Onda 6 — item 6.2) ============ */
+function openForgotPasswordModal() {
+  showModal({
+    title: "Esqueci minha senha",
+    bodyHtml: `
+      <p style="font-size:13px;color:#64748B;margin-bottom:14px">Informe seu e-mail cadastrado. Se ele existir, você vai receber um link pra criar uma nova senha.</p>
+      ${fld("forgot-email", "E-mail *", { type: "email", placeholder: "voce@napel.com.br" })}`,
+    okText: "Enviar instruções",
+    onOk: async () => {
+      const email = val("forgot-email");
+      if (!email) throw new Error("informe o e-mail");
+      await fetch(`${API_BASE}/api/auth/forgot-password`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      toast("Instruções enviadas se este e-mail estiver cadastrado");
+    },
   });
 }
 // Detecta se está embarcado como iframe (dentro do Clavis). Dentro do Clavis
@@ -191,6 +278,13 @@ function showReconnecting() {
 
 function showLoginModal() {
   if (inIframe) { showReconnecting(); return; }   // dentro do Clavis → SSO, sem form demo
+  // Onda 6 — item 6.1: guarda a URL atual (rota + querystring) pra restaurar depois do
+  // relogin — sem isso, o usuário perde o contexto (curso/unidade onde estava) quando a
+  // sessão expira no meio de uma navegação.
+  try {
+    const currentRoute = (location.hash || "").replace("#/", "").split("?")[0];
+    if (currentRoute && currentRoute !== "reset-password") sessionStorage.setItem(PENDING_URL_KEY, location.hash);
+  } catch (_) {}
   injectLoginModal();
   document.getElementById("login-modal").style.display = "flex";
   setTimeout(() => document.getElementById("login-user")?.focus(), 50);
@@ -2378,6 +2472,7 @@ async function handleRoute() {
 async function bootstrapAfterLogin(user) {
   state.user = user;
   state.token = getToken();
+  state.refresh_token = getRefreshToken();  // Onda 6 — item 6.1
   renderTopbar(user);
   // atualiza badge "Utilizadores N" no sidebar (count real, em todas as telas)
   try {
@@ -2393,6 +2488,7 @@ async function _lmsBootstrap() {
   const token = getToken();
   if (!token) { showLoginModal(); return; }
   state.token = token;
+  state.refresh_token = getRefreshToken();  // Onda 6 — item 6.1
   authLoading = true;                       // trava handleRoute de mostrar o modal durante o await
   try {
     state.user = await api("/api/auth/me");

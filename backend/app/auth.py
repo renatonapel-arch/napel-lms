@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status
@@ -7,7 +8,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
-from .models import User, Enrollment, LearningPath, LearningPathCourse
+from .models import User, Enrollment, LearningPath, LearningPathCourse, RefreshToken
 
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2 = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
@@ -145,6 +146,48 @@ def make_token(user: User) -> str:
         "iat": datetime.utcnow(),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+# ============ REFRESH TOKEN (Onda 6 — item 6.1) ============
+# OPUS_REVIEW: refresh token opaco de 256 bits (secrets.token_urlsafe), guardado em texto
+# puro na tabela (não é senha — não faz sentido bcrypt aqui). Sem rotação a cada uso
+# (mesmo token serve até expirar/ser revogado) — simplificação deliberada pra manter o
+# código pequeno; se quiser blindar mais, rotacionar a cada refresh invalidaria replay
+# de um token vazado (hoje ele seria reutilizável até expirar ou até o próximo reset de senha).
+def make_refresh_token(db: Session, user: User) -> str:
+    token = secrets.token_urlsafe(32)
+    db.add(RefreshToken(
+        user_id=user.id, token=token,
+        expires_at=datetime.utcnow() + timedelta(days=settings.refresh_token_expires_days),
+    ))
+    db.commit()
+    return token
+
+
+def consume_refresh_token(db: Session, token: str) -> Optional[User]:
+    """Valida um refresh token e devolve o User dono, ou None se inválido/expirado/revogado."""
+    rt = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+    if not rt or rt.revoked or rt.expires_at < datetime.utcnow():
+        return None
+    user = db.query(User).filter(User.id == rt.user_id, User.status == "active").first()
+    return user
+
+
+def revoke_refresh_token(db: Session, token: str) -> None:
+    rt = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+    if rt and not rt.revoked:
+        rt.revoked = True
+        db.commit()
+
+
+def revoke_all_user_refresh_tokens(db: Session, user_id: int) -> None:
+    """Usado no reset de senha: força novo login em qualquer sessão antiga (item 6.2).
+    OPUS_REVIEW: só invalida REFRESH tokens — o access token JWT já emitido continua
+    válido (stateless) até expirar sozinho (agora só 2h, ver config.py)."""
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False)
+    ).update({"revoked": True}, synchronize_session=False)
+    db.commit()
 
 
 def _decode_dual(token: str) -> dict:

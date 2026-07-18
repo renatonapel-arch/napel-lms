@@ -243,3 +243,18 @@ class Message(Base):
     body = Column(Text, default="")
     read_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ============ AUTH — REFRESH TOKEN (Onda 6 — item 6.1) ============
+class RefreshToken(Base):
+    """Refresh token opaco (não-JWT) — permite renovar o access token sem novo login
+    e permite revogação server-side (logout / reset de senha). Token guardado em texto
+    puro (não é senha, não passa por bcrypt): é um segredo aleatório de 256 bits,
+    equivalente em força a uma session key — padrão comum p/ refresh tokens."""
+    __tablename__ = "refresh_tokens"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

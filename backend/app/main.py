@@ -7,8 +7,15 @@ from sqlalchemy.orm import Session, joinedload
 from . import models, schemas
 from .config import settings
 from .db import get_db, engine, Base, SessionLocal
-from .auth import current_user, require_admin, make_token, verify_password, hash_password
-from .models import User, Course, Unit, Enrollment, Progress, Badge, UserBadge, Certificate, Category, GroupUser, GroupCourse, QuizAttempt, Setting, LearningPath, LearningPathCourse, PathCertificate
+from .auth import (
+    current_user, require_admin, make_token, verify_password, hash_password,
+    make_refresh_token, consume_refresh_token, revoke_refresh_token,
+)
+from .models import (
+    User, Course, Unit, Enrollment, Progress, Badge, UserBadge, Certificate, Category,
+    GroupUser, GroupCourse, QuizAttempt, Setting, LearningPath, LearningPathCourse, PathCertificate,
+    RefreshToken,
+)
 
 # garante tabelas existem (idempotente em prod)
 Base.metadata.create_all(bind=engine)
@@ -108,12 +115,38 @@ def login(data: schemas.LoginIn, db: Session = Depends(get_db)):
         raise HTTPException(403, "Usuário inativo")
     user.last_login = datetime.utcnow()
     db.commit()
-    return schemas.TokenOut(access_token=make_token(user), user=schemas.UserOut.model_validate(user))
+    refresh_token = make_refresh_token(db, user)
+    return schemas.TokenOut(
+        access_token=make_token(user), refresh_token=refresh_token,
+        user=schemas.UserOut.model_validate(user),
+    )
 
 
 @app.get("/api/auth/me", response_model=schemas.UserOut)
 def me(user: User = Depends(current_user)):
     return user
+
+
+# ============ REFRESH / LOGOUT (Onda 6 — item 6.1) ============
+@app.post("/api/auth/refresh", response_model=schemas.RefreshOut)
+def refresh_access_token(data: schemas.RefreshIn, db: Session = Depends(get_db)):
+    """Endpoint público (sem Depends(current_user)) — a prova de posse É o refresh token em si.
+    OPUS_REVIEW: sem rate limit dedicado aqui — o token tem 256 bits de entropia (inviável
+    força bruta), mas um endpoint público sempre merece revisão de abuso/DoS."""
+    user = consume_refresh_token(db, data.refresh_token)
+    if not user:
+        raise HTTPException(401, "refresh token inválido, expirado ou revogado")
+    return schemas.RefreshOut(access_token=make_token(user))
+
+
+@app.post("/api/auth/logout")
+def logout(data: schemas.LogoutIn, db: Session = Depends(get_db)):
+    """Revoga o refresh token no logout — sem isso, um refresh token vazado continuaria
+    válido mesmo depois do usuário 'sair'. Sem auth aqui de propósito: o token em si já
+    prova posse, e revogar um token que não é seu não tem efeito (não vaza nada)."""
+    if data.refresh_token:
+        revoke_refresh_token(db, data.refresh_token)
+    return {"status": "ok"}
 
 
 # ============ USERS ============
