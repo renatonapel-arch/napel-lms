@@ -1762,8 +1762,21 @@ async function renderActivity(reset = true) {
   } catch (e) { console.error("[activity]", e); }
 }
 
+/* ============ AJUDA & SUPORTE ============ */
+async function renderHelp() {
+  try {
+    const health = await api("/api/health").catch(() => ({}));
+    const portal = await api("/api/settings/portal").catch(() => ({}));
+    const v = $("#help-version"); if (v) v.textContent = health.version || "?";
+    const s = $("#help-status");
+    if (s) { s.textContent = health.status || "?"; s.className = "font-semibold " + (health.status === "ok" ? "text-success-fg" : "text-danger-fg"); }
+    const p = $("#help-portal-name"); if (p) p.textContent = portal.site_name || "Napel LMS";
+  } catch (e) { console.error("[help]", e); }
+}
+
 /* ============ ROUTER ============ */
 const routes = {
+  "help": renderHelp,
   "dashboard": renderDashboard,
   "courses": renderCourses,
   "course-detail": renderCourseDetail,

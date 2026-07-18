@@ -195,8 +195,8 @@ tailwind.config = {
     </a>
   </nav>
   <div class="p-3 border-t border-slate-700/40 shrink-0">
-    <a href="#" class="flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm text-slate-300">
-      <i data-lucide="life-buoy" class="w-5 h-5 text-ceu"></i> Ajuda &amp; suporte
+    <a href="#/help" data-nav="help" class="nav-item flex items-center gap-3 px-3 py-3 rounded-md hover:bg-slate-800 text-sm text-slate-300">
+      <i data-lucide="life-buoy" class="nav-icon w-5 h-5 text-ceu"></i> Ajuda &amp; suporte
     </a>
   </div>
 </aside>
@@ -1779,6 +1779,64 @@ tailwind.config = {
       <div id="account-content"></div>
     </section>
 
+    <!-- ================== 12b. AJUDA & SUPORTE ================== -->
+    <section id="page-help" class="page">
+      <h1 class="text-2xl font-bold text-naval mb-2">Ajuda &amp; Suporte</h1>
+      <p class="text-sm text-slate-500 mb-6">Dúvidas comuns, contato e informações do sistema</p>
+
+      <div class="bg-white border border-borderd rounded-lg p-6 max-w-3xl mb-6">
+        <h3 class="text-base font-semibold text-naval mb-4 flex items-center gap-2"><i data-lucide="help-circle" class="w-4 h-4"></i> Perguntas frequentes</h3>
+        <div class="divide-y divide-slate-100">
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">Como faço login?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">Use o login ou e-mail cadastrado e a senha fornecida pelo seu gestor. Se veio pelo Clavis, o acesso já entra logado automaticamente.</p>
+          </details>
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">Esqueci minha senha, e agora?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">Fale com o administrador do portal (RH ou seu gestor direto) para redefinir sua senha de acesso.</p>
+          </details>
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">Como me matriculo num curso?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">A maioria dos cursos é atribuída automaticamente pelo seu grupo/filial. Cursos livres aparecem em "Cursos" com o botão "Matricular-se".</p>
+          </details>
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">Como faço uma prova (quiz)?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">Ao concluir as aulas de uma seção com quiz, o botão "Iniciar quiz" fica disponível na trilha do curso. Você pode repetir até atingir a nota mínima.</p>
+          </details>
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">O que é um badge?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">É uma conquista visual liberada ao atingir uma meta (ex: concluir um curso, entrar no top do ranking). Aparece no seu perfil.</p>
+          </details>
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">Como vejo meus certificados?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">Em "Meu perfil", aba Certificados — disponível assim que você conclui 100% de um curso ou trilha.</p>
+          </details>
+          <details class="py-3 group">
+            <summary class="cursor-pointer text-sm font-medium text-naval list-none flex items-center justify-between">Como funciona o ranking e os pontos?<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i></summary>
+            <p class="text-sm text-slate-600 mt-2">Você ganha pontos por login diário, aulas concluídas, cursos completos e provas aprovadas. O ranking soma tudo em "Ranking".</p>
+          </details>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+        <div class="bg-white border border-borderd rounded-lg p-6">
+          <h3 class="text-base font-semibold text-naval mb-4 flex items-center gap-2"><i data-lucide="life-buoy" class="w-4 h-4"></i> Contato</h3>
+          <div class="space-y-3 text-sm">
+            <a href="mailto:contato@napel.com.br?subject=Napel%20LMS%20-%20Suporte" class="flex items-center gap-2 text-naval hover:underline"><i data-lucide="mail" class="w-4 h-4"></i> contato@napel.com.br</a>
+            <a href="https://wa.me/5544999413366" target="_blank" rel="noopener" class="flex items-center gap-2 text-naval hover:underline"><i data-lucide="message-circle" class="w-4 h-4"></i> (44) 99941-3366</a>
+          </div>
+        </div>
+        <div class="bg-white border border-borderd rounded-lg p-6">
+          <h3 class="text-base font-semibold text-naval mb-4 flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i> Sobre</h3>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between py-1"><span class="text-slate-500">Versão API</span><span class="font-mono" id="help-version">—</span></div>
+            <div class="flex justify-between py-1"><span class="text-slate-500">Status</span><span class="font-semibold" id="help-status">—</span></div>
+            <div class="flex justify-between py-1"><span class="text-slate-500">Portal</span><span class="font-semibold" id="help-portal-name">Napel LMS</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================== 10. LISTA DE UTILIZADORES ================== -->
     <section id="page-users" class="page">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
@@ -2088,7 +2146,7 @@ tailwind.config = {
 </div>
 
 <script>
-  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account', 'paths', 'path-detail', 'activity'];
+  const pages = ['dashboard', 'courses', 'course-detail', 'unit-player', 'quiz', 'leaderboard', 'profile', 'matrix', 'user-detail', 'users', 'groups', 'account', 'paths', 'path-detail', 'activity', 'help'];
 
   function showPage(name) {
     const target = pages.includes(name) ? name : 'dashboard';
@@ -2143,7 +2201,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=31"></script>
+<script src="api.js?v=32"></script>
 <script src="actions.js?v=9"></script>
 </body>
 </html>
