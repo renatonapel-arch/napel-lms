@@ -1103,11 +1103,50 @@ async function renderUserDetail() {
       <span>·</span><span class="flex items-center gap-1"><i data-lucide="mail" class="w-3.5 h-3.5"></i> ${escapeHtml(u.email)}</span>
       ${u.last_login ? `<span>·</span><span class="flex items-center gap-1"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> ${new Date(u.last_login).toLocaleDateString("pt-BR")}</span>` : ""}`;
 
-    // tab counts dinâmicos
+    // tab counts dinâmicos (0 Cursos · 1 Provas · 2 Certificados · 3 Grupos · 4 Ramificações)
     const tabs = $$("#page-user-detail .tab-trigger");
     if (tabs[0]) tabs[0].innerHTML = `<i data-lucide="book-open" class="w-4 h-4"></i> Cursos <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${u.enrollments.length}</span>`;
-    if (tabs[1]) tabs[1].innerHTML = `<i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span>`;
-    if (tabs[2]) tabs[2].innerHTML = `<i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span>`;
+    if (tabs[3]) tabs[3].innerHTML = `<i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span>`;
+    if (tabs[4]) tabs[4].innerHTML = `<i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span>`;
+
+    // aba Provas: histórico de tentativas de quiz (busca sempre, exibida só quando a aba é clicada)
+    const attempts = await api(`/api/users/${userId}/quiz-attempts`).catch(() => []);
+    if (tabs[1]) tabs[1].innerHTML = `<i data-lucide="clipboard-check" class="w-4 h-4"></i> Provas <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${attempts.length}</span>`;
+    const provasZone = $("#user-provas-zone");
+    if (provasZone) {
+      if (attempts.length === 0) {
+        provasZone.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="clipboard-x" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><h3 class="text-sm font-semibold text-naval mb-1">Aluno ainda não fez provas</h3></div>`;
+      } else {
+        provasZone.innerHTML = `<div class="bg-white border border-borderd rounded-lg overflow-hidden"><table class="data-table"><thead><tr>
+          <th>Curso</th><th>Prova</th><th class="text-center">Tentativa</th><th class="text-center">Nota</th><th class="text-center">Passou</th><th>Data</th>
+        </tr></thead><tbody>${attempts.map(a => {
+          const dt = a.completed_at ? new Date(a.completed_at) : null;
+          const dateStr = dt ? `${String(dt.getDate()).padStart(2, "0")}/${String(dt.getMonth() + 1).padStart(2, "0")} ${String(dt.getHours()).padStart(2, "0")}:${String(dt.getMinutes()).padStart(2, "0")}` : "—";
+          return `<tr>
+            <td>${escapeHtml(a.course_name || "—")}</td>
+            <td>${escapeHtml(a.unit_title || "—")}${a.unit_section ? `<div class="text-[11px] text-slate-500">${escapeHtml(a.unit_section)}</div>` : ""}</td>
+            <td class="text-center">${a.attempt_number}</td>
+            <td class="text-center font-bold ${a.score_pct >= 70 ? "text-success-fg" : "text-danger-fg"}">${a.score_pct}%</td>
+            <td class="text-center"><span class="badge ${a.passed ? "badge-success" : "badge-danger"}">${a.passed ? "Sim" : "Não"}</span></td>
+            <td class="text-xs text-slate-500">${dateStr}</td>
+          </tr>`;
+        }).join("")}</tbody></table></div>`;
+      }
+    }
+
+    // troca de aba (Cursos / Provas — Certificados entra no item 4.5)
+    if (!tabs[0]?.dataset.udBound) {
+      tabs.forEach((t, i) => {
+        t.dataset.udBound = "1";
+        t.addEventListener("click", () => {
+          tabs.forEach(x => x.classList.remove("active"));
+          t.classList.add("active");
+          const coursesZone = $("#user-courses-zone");
+          if (coursesZone) coursesZone.classList.toggle("hidden", i !== 0);
+          if (provasZone) provasZone.classList.toggle("hidden", i !== 1);
+        });
+      });
+    }
 
     // tabela cursos (com nomes reais)
     const tbody = $("#page-user-detail .data-table tbody");

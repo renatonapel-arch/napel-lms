@@ -1040,8 +1040,22 @@ def update_gam_settings(data: schemas.GamificationSettings, db: Session = Depend
 
 # ============ QUIZ HISTORY ============
 @app.get("/api/users/{user_id}/quiz-attempts", response_model=List[schemas.QuizAttemptOut])
-def user_quiz_attempts(user_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    return db.query(QuizAttempt).filter(QuizAttempt.user_id == user_id).order_by(QuizAttempt.started_at.desc()).all()
+def user_quiz_attempts(user_id: int, course_id: Optional[int] = None, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    q = db.query(QuizAttempt).join(Unit, QuizAttempt.unit_id == Unit.id).filter(QuizAttempt.user_id == user_id)
+    if course_id:
+        q = q.filter(Unit.course_id == course_id)
+    attempts = q.order_by(QuizAttempt.completed_at.desc()).all()
+    out = []
+    for a in attempts:
+        unit = db.query(Unit).get(a.unit_id)
+        course = db.query(Course).get(unit.course_id) if unit else None
+        ao = schemas.QuizAttemptOut.model_validate(a)
+        ao.course_id = unit.course_id if unit else None
+        ao.course_name = course.name if course else None
+        ao.unit_title = unit.title if unit else None
+        ao.unit_section = unit.section if unit else None
+        out.append(ao)
+    return out
 
 
 # ============ DASHBOARD EXTRAS ============

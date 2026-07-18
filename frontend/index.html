@@ -1857,6 +1857,8 @@ tailwind.config = {
       <!-- abas -->
       <div class="flex border-b border-borderd mb-4 overflow-x-auto">
         <button class="tab-trigger active flex items-center gap-1.5"><i data-lucide="book-open" class="w-4 h-4"></i> Cursos <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">6</span></button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="clipboard-check" class="w-4 h-4"></i> Provas <span class="ml-1 text-[10px] text-slate-400">0</span></button>
+        <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="award" class="w-4 h-4"></i> Certificados <span class="ml-1 text-[10px] text-slate-400">0</span></button>
         <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span></button>
         <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span></button>
         <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="credit-card" class="w-4 h-4"></i> Pagamentos</button>
@@ -1864,6 +1866,7 @@ tailwind.config = {
         <button class="tab-trigger flex items-center gap-1.5"><i data-lucide="info" class="w-4 h-4"></i> Info</button>
       </div>
 
+      <div id="user-courses-zone">
       <!-- toolbar -->
       <div class="bg-white border border-borderd rounded-lg p-3 flex flex-col md:flex-row gap-2 mb-4 items-stretch md:items-center">
         <div class="flex-1 relative max-w-sm">
@@ -2046,6 +2049,10 @@ tailwind.config = {
           </div>
         </div>
       </div>
+      </div>
+
+      <div id="user-provas-zone" class="hidden"></div>
+      <div id="user-certs-zone" class="hidden"></div>
 
       <!-- sidebar info compacta abaixo -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
@@ -2121,7 +2128,7 @@ tailwind.config = {
     else navigate(location.hash);
   });
 </script>
-<script src="api.js?v=25"></script>
+<script src="api.js?v=26"></script>
 <script src="actions.js?v=8"></script>
 </body>
 </html>

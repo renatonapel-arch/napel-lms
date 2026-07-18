@@ -344,6 +344,10 @@ class QuizAttemptOut(BaseModel):
     passed: bool
     started_at: datetime
     completed_at: Optional[datetime] = None
+    course_id: Optional[int] = None
+    course_name: Optional[str] = None
+    unit_title: Optional[str] = None
+    unit_section: Optional[str] = None
 
     class Config:
         from_attributes = True
