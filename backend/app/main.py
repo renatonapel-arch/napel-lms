@@ -365,6 +365,33 @@ def my_progress(course_id: Optional[int] = None, db: Session = Depends(get_db), 
     return [{"unit_id": p.unit_id, "completion_pct": p.completion_pct or 0, "completed_at": p.completed_at.isoformat() if p.completed_at else None, "score": p.score} for p in rows]
 
 
+@app.get("/api/users/{user_id}/progress")
+def user_progress(user_id: int, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Espelho admin de /api/users/me/progress, com curso/unidade já resolvidos — usado na aba Aulas do perfil (user-detail)."""
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise HTTPException(404, "user not found")
+    rows = (
+        db.query(Progress, Unit, Course)
+        .join(Unit, Progress.unit_id == Unit.id)
+        .join(Course, Unit.course_id == Course.id)
+        .filter(Progress.user_id == user_id)
+        .order_by(Progress.completed_at.desc().nullslast())
+        .all()
+    )
+    return [{
+        "unit_id": u.id,
+        "course_id": c.id,
+        "course_name": c.name,
+        "section": u.section,
+        "title": u.title,
+        "type": u.type,
+        "completion_pct": p.completion_pct or 0,
+        "completed_at": p.completed_at.isoformat() if p.completed_at else None,
+        "score": p.score,
+    } for p, u, c in rows]
+
+
 @app.get("/api/users/me/resume")
 def my_resume(db: Session = Depends(get_db), user: User = Depends(current_user)):
     """Retorna a próxima aula a fazer, priorizando o curso com atividade mais recente."""

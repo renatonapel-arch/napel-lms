@@ -1233,8 +1233,8 @@ async function renderUserDetail() {
     // tab counts dinâmicos (0 Cursos · 1 Provas · 2 Certificados · 3 Grupos · 4 Ramificações)
     const tabs = $$("#page-user-detail .tab-trigger");
     if (tabs[0]) tabs[0].innerHTML = `<i data-lucide="book-open" class="w-4 h-4"></i> Cursos <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${u.enrollments.length}</span>`;
-    if (tabs[3]) tabs[3].innerHTML = `<i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span>`;
-    if (tabs[4]) tabs[4].innerHTML = `<i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span>`;
+    if (tabs[4]) tabs[4].innerHTML = `<i data-lucide="users-round" class="w-4 h-4"></i> Grupos <span class="ml-1 text-[10px] text-slate-400">0</span>`;
+    if (tabs[5]) tabs[5].innerHTML = `<i data-lucide="git-branch" class="w-4 h-4"></i> Ramificações <span class="ml-1 text-[10px] text-slate-400">0</span>`;
 
     // aba Provas: histórico de tentativas de quiz (busca sempre, exibida só quando a aba é clicada)
     const attempts = await api(`/api/users/${userId}/quiz-attempts`).catch(() => []);
@@ -1280,7 +1280,13 @@ async function renderUserDetail() {
       }
     }
 
-    // troca de aba (Cursos / Provas / Certificados)
+    // aba Aulas: progresso por unidade (item 1.10)
+    const progress = await api(`/api/users/${userId}/progress`).catch(() => []);
+    const doneCount = progress.filter(p => (p.completion_pct || 0) > 0).length;
+    if (tabs[3]) tabs[3].innerHTML = `<i data-lucide="play-circle" class="w-4 h-4"></i> Aulas <span class="ml-1 bg-gelo text-naval text-[10px] font-bold rounded-full px-1.5 py-0.5">${doneCount}</span>`;
+    renderAulasZone(progress);
+
+    // troca de aba (Cursos / Provas / Certificados / Aulas)
     if (!tabs[0]?.dataset.udBound) {
       tabs.forEach((t, i) => {
         t.dataset.udBound = "1";
@@ -1288,9 +1294,11 @@ async function renderUserDetail() {
           tabs.forEach(x => x.classList.remove("active"));
           t.classList.add("active");
           const coursesZone = $("#user-courses-zone");
+          const aulasZone = $("#user-aulas-zone");
           if (coursesZone) coursesZone.classList.toggle("hidden", i !== 0);
           if (provasZone) provasZone.classList.toggle("hidden", i !== 1);
           if (certsZone) certsZone.classList.toggle("hidden", i !== 2);
+          if (aulasZone) aulasZone.classList.toggle("hidden", i !== 3);
         });
       });
     }
@@ -1354,6 +1362,66 @@ async function renderUserDetail() {
     }
     rerunLucide();
   } catch (e) { console.error("[user-detail]", e); }
+}
+
+/* ============ ABA AULAS (progresso por unidade) ============ */
+const AULA_TYPE_ICON = { video: "video", audio: "headphones", text: "file-text", quiz: "help-circle", pdf: "file", scorm: "package", assignment: "clipboard-check" };
+function aulaPctClass(pct) {
+  if (pct >= 100) return "text-success-fg font-bold";
+  if (pct > 0) return "text-warn-fg font-bold";
+  return "text-slate-400";
+}
+function renderAulasZone(all) {
+  const zone = $("#user-aulas-zone");
+  if (!zone) return;
+  if (all.length === 0) {
+    zone.innerHTML = `<div class="bg-white border border-borderd rounded-lg p-10 text-center"><i data-lucide="play-circle" class="w-12 h-12 mx-auto mb-3 text-slate-300"></i><h3 class="text-sm font-semibold text-naval mb-1">Aluno ainda não consumiu nenhuma aula</h3></div>`;
+    return;
+  }
+  const courses = [...new Map(all.map(a => [a.course_id, a.course_name])).entries()];
+  const types = [...new Set(all.map(a => a.type))];
+  zone.innerHTML = `
+    <div class="bg-white border border-borderd rounded-lg p-3 flex flex-col md:flex-row gap-2 mb-4">
+      <select id="aulas-filter-course" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+        <option value="">Todos os cursos</option>
+        ${courses.map(([id, name]) => `<option value="${id}">${escapeHtml(name || "")}</option>`).join("")}
+      </select>
+      <select id="aulas-filter-type" class="h-10 px-3 border border-borderd rounded-md bg-white text-sm text-naval">
+        <option value="">Todos os tipos</option>
+        ${types.map(t => `<option value="${t}">${escapeHtml(t)}</option>`).join("")}
+      </select>
+    </div>
+    <div class="bg-white border border-borderd rounded-lg overflow-hidden">
+      <table class="data-table"><thead><tr>
+        <th>Curso</th><th>Seção</th><th>Aula</th><th>Tipo</th><th>Concluída em</th><th class="text-right">%</th>
+      </tr></thead><tbody id="aulas-tbody"></tbody></table>
+    </div>`;
+  renderAulasTable(all);
+  $("#aulas-filter-course").addEventListener("change", () => applyAulasFilter(all));
+  $("#aulas-filter-type").addEventListener("change", () => applyAulasFilter(all));
+}
+function renderAulasTable(list) {
+  const tbody = $("#aulas-tbody");
+  if (!tbody) return;
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-500">Nenhuma aula encontrada com esses filtros.</td></tr>`;
+  } else {
+    tbody.innerHTML = list.map(a => `<tr>
+      <td>${escapeHtml(a.course_name || "—")}</td>
+      <td>${escapeHtml(a.section || "—")}</td>
+      <td>${escapeHtml(a.title)}</td>
+      <td><span class="badge badge-neutral flex items-center gap-1 w-fit"><i data-lucide="${AULA_TYPE_ICON[a.type] || "circle"}" class="w-3 h-3"></i> ${escapeHtml(a.type)}</span></td>
+      <td class="text-xs text-slate-500">${a.completed_at ? new Date(a.completed_at).toLocaleDateString("pt-BR") : "—"}</td>
+      <td class="text-right ${aulaPctClass(a.completion_pct)}">${a.completion_pct}%</td>
+    </tr>`).join("");
+  }
+  rerunLucide();
+}
+function applyAulasFilter(all) {
+  const courseF = $("#aulas-filter-course")?.value || "";
+  const typeF = $("#aulas-filter-type")?.value || "";
+  const filtered = all.filter(a => (!courseF || String(a.course_id) === courseF) && (!typeF || a.type === typeF));
+  renderAulasTable(filtered);
 }
 
 /* ============ PROFILE ============ */
