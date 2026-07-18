@@ -845,18 +845,22 @@ async function openCreateGroup() {
 }
 
 async function openEditGroup(groupId) {
-  const [g, allUsers, allCourses] = await Promise.all([
+  const [g, allUsers, allCourses, cats] = await Promise.all([
     api(`/api/groups/${groupId}`),
     api("/api/users"),
     api("/api/courses?status=active"),
+    api("/api/categories").catch(() => []),
   ]);
   const memberSet = new Set(g.user_ids);
   const courseSet = new Set(g.course_ids);
+  const catChoices = [{ value: "", label: "Sem categoria" }, ...cats.map(c => ({ value: c.name, label: c.name }))];
   showModal({
     title: `Editar grupo "${g.name}"`,
     bodyHtml:
-      fld("g-name", "Nome", { value: g.name }) +
+      fld("g-name", "Nome", { value: g.name, hint: "3 a 100 caracteres" }) +
       fld("g-description", "Descrição", { value: g.description || "", required: false, rows: 2 }) +
+      fld("g-category", "Categoria", { value: g.category || "", choices: catChoices }) +
+      fld("g-status", "Status", { value: g.status, choices: [{ value: "active", label: "Ativo" }, { value: "inactive", label: "Inativo" }] }) +
       `<label style="display:block;font-size:12px;font-weight:600;color:#113C58;margin:14px 0 6px">Membros</label>
       <div style="max-height:180px;overflow-y:auto;border:1px solid #E4EEF3;border-radius:6px;padding:6px">
         ${allUsers.map(u => `<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:12px;cursor:pointer">
@@ -877,6 +881,7 @@ async function openEditGroup(groupId) {
       const newCourses = Array.from(document.querySelectorAll(".g-course:checked")).map(c => parseInt(c.value));
       await api(`/api/groups/${groupId}`, { method: "PATCH", body: JSON.stringify({
         name: val("g-name"), description: val("g-description"),
+        category: val("g-category"), status: val("g-status"),
       })});
       await api(`/api/groups/${groupId}/users`, { method: "PUT", body: JSON.stringify({ user_ids: newUsers }) });
       const r = await api(`/api/groups/${groupId}/courses`, { method: "PUT", body: JSON.stringify({ course_ids: newCourses }) });
