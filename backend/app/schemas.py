@@ -408,5 +408,19 @@ class PathCertificateOut(BaseModel):
         from_attributes = True
 
 
+# === notifications (Onda 2 — item 2.1) ===
+class NotificationOut(BaseModel):
+    id: int
+    kind: str
+    title: str
+    body: str = ""
+    link: Optional[str] = None
+    read_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # resolve forward
 TokenOut.model_rebuild()

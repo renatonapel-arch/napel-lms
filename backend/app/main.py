@@ -656,6 +656,7 @@ def submit_quiz_answer(unit_id: int, q_idx: int, data: schemas.QuizAnswerIn,
                     grant_badge_if_missing(db, user.id, "Quiz Master")
                     _maybe_issue_certificate(db, user.id, unit.course_id)
                     _maybe_issue_path_certificates_for_course(db, user.id, unit.course_id)
+        _check_level_up(db, user)
     db.commit()
 
     return schemas.QuizAnswerOut(
@@ -759,6 +760,7 @@ def post_progress(data: schemas.ProgressIn, db: Session = Depends(get_db), user:
             grant_badge_if_missing(db, user.id, "Quiz Master")
             _maybe_issue_certificate(db, user.id, unit.course_id)
             _maybe_issue_path_certificates_for_course(db, user.id, unit.course_id)
+    _check_level_up(db, user)
     db.commit()
     db.refresh(p)
     return p
@@ -785,6 +787,21 @@ def grant_badge_if_missing(db: Session, user_id: int, badge_name: str):
         user = db.query(User).get(user_id)
         if user:
             user.points += badge.points
+            create_notification(db, user_id, "badge", f"🏆 Você ganhou o badge {badge.name}!",
+                                 badge.description or "", link="#/profile")
+
+
+def _check_level_up(db: Session, user: User):
+    """Verifica se os pontos atuais cruzam o limiar do próximo nível (best effort, nunca quebra o fluxo chamador)."""
+    try:
+        gam = _get_setting(db, "gamification", schemas.GamificationSettings().model_dump())
+        threshold = gam.get("level_up_points") or 1000
+        while threshold > 0 and (user.points or 0) >= (user.level or 1) * threshold:
+            user.level = (user.level or 1) + 1
+            create_notification(db, user.id, "level_up", f"⭐ Você subiu para o nível {user.level}!",
+                                 "Continue treinando pra desbloquear mais badges e certificados.", link="#/profile")
+    except Exception:
+        pass
 
 
 # ============ LEADERBOARD ============
@@ -989,7 +1006,10 @@ def _maybe_issue_certificate(db: Session, user_id: int, course_id: int):
         return None  # concluiu conteúdo mas não atingiu a nota — não emite
     code = f"NAPEL-{datetime.utcnow().year}-{secrets.token_hex(3).upper()}"
     cert = Certificate(user_id=user_id, course_id=course_id, code=code)
-    db.add(cert); db.commit(); db.refresh(cert)
+    db.add(cert)
+    create_notification(db, user_id, "certificate", f"🎓 Você concluiu o curso {course.name}!",
+                         "Seu certificado já está disponível pra download.", link="#/profile")
+    db.commit(); db.refresh(cert)
     return cert
 
 
@@ -1548,3 +1568,41 @@ def activity_feed(limit: int = 30, offset: int = 0, kind: Optional[str] = None, 
     for e in page:
         e["ts"] = e["ts"].isoformat() if e["ts"] else None
     return {"events": page, "total": total}
+
+
+# ============ NOTIFICAÇÕES (Onda 2 — item 2.1) ============
+from .models import Notification
+
+
+def create_notification(db: Session, user_id: int, kind: str, title: str, body: str = "", link: Optional[str] = None):
+    """Best effort: só faz db.add — quem chama decide quando commitar."""
+    db.add(Notification(user_id=user_id, kind=kind, title=title, body=body, link=link))
+
+
+@app.get("/api/notifications/me", response_model=List[schemas.NotificationOut])
+def my_notifications(limit: int = 20, unread_only: bool = False, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    q = db.query(Notification).filter(Notification.user_id == user.id)
+    if unread_only:
+        q = q.filter(Notification.read_at.is_(None))
+    return q.order_by(Notification.created_at.desc()).limit(limit).all()
+
+
+@app.post("/api/notifications/{notif_id}/mark-read")
+def mark_notification_read(notif_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    n = db.query(Notification).filter(Notification.id == notif_id, Notification.user_id == user.id).first()
+    if not n:
+        raise HTTPException(404, "notification not found")
+    if not n.read_at:
+        n.read_at = datetime.utcnow()
+        db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/notifications/mark-all-read")
+def mark_all_notifications_read(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    now = datetime.utcnow()
+    updated = db.query(Notification).filter(
+        Notification.user_id == user.id, Notification.read_at.is_(None)
+    ).update({"read_at": now}, synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "updated": updated}

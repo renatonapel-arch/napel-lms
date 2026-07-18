@@ -216,3 +216,16 @@ class PathCertificate(Base):
     code = Column(String(32), unique=True, nullable=False)
     issued_at = Column(DateTime, default=datetime.utcnow)
     __table_args__ = (UniqueConstraint("user_id", "path_id", name="uq_path_certificate"),)
+
+
+# ============ NOTIFICAÇÕES (Onda 2 — item 2.1) ============
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind = Column(String(32), default="info")  # certificate|badge|level_up|message|info
+    title = Column(String(255), nullable=False)
+    body = Column(Text, default="")
+    link = Column(String(255), nullable=True)
+    read_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

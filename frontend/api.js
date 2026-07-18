@@ -256,11 +256,97 @@ function renderTopbar(user) {
         <button onclick="doLogout()" class="block w-full text-left px-4 py-2 text-sm text-danger-fg hover:bg-danger-bg">Sair</button>
       </div>
     </div>`;
-  // remove badges hardcoded de "Mensagens 3" e "Notificações ●" (sem endpoint ainda)
+  // remove badge hardcoded de "Mensagens 3" (endpoint real ainda não plugado nesta wave)
   document.querySelectorAll('.main-shifted header button[aria-label="Mensagens (3 não lidas)"] span').forEach(el => el.remove());
-  document.querySelectorAll('.main-shifted header button[aria-label="Notificações"] span').forEach(el => el.remove());
+  refreshNotifBadge();
   updateImpersonateBanner(user);
 }
+
+/* ============ DROPDOWNS (fecha ao clicar fora / ESC) ============ */
+function bindDropdownOutsideClose(btnId, dropdownId) {
+  document.addEventListener("click", (e) => {
+    const btn = document.getElementById(btnId), dd = document.getElementById(dropdownId);
+    if (!btn || !dd || dd.classList.contains("hidden")) return;
+    if (!btn.contains(e.target) && !dd.contains(e.target)) dd.classList.add("hidden");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    document.getElementById(dropdownId)?.classList.add("hidden");
+  });
+}
+
+/* ============ NOTIFICAÇÕES (Onda 2 — item 2.1) ============ */
+const NOTIF_ICON = { certificate: "graduation-cap", badge: "trophy", level_up: "star", message: "mail-open" };
+
+async function toggleNotifDropdown() {
+  const dd = document.getElementById("notif-dropdown");
+  if (!dd) return;
+  const opening = dd.classList.contains("hidden");
+  document.getElementById("msg-dropdown")?.classList.add("hidden");
+  dd.classList.toggle("hidden");
+  if (opening) await loadNotifDropdown();
+}
+
+function renderNotifItems(items) {
+  if (!items.length) {
+    return `<div class="p-6 text-center text-xs text-slate-400"><i data-lucide="bell-off" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>Sem notificações.</div>`;
+  }
+  return `<div class="max-h-96 overflow-y-auto divide-y divide-slate-100">${items.map(n => `
+    <div class="flex items-start gap-3 p-3 hover:bg-gelo cursor-pointer ${n.read_at ? "" : "bg-gelo/60"}" onclick="openNotification(${n.id}, ${n.link ? `'${n.link}'` : "null"})">
+      <div class="w-8 h-8 rounded-full bg-gelo text-naval flex items-center justify-center shrink-0"><i data-lucide="${NOTIF_ICON[n.kind] || "bell"}" class="w-4 h-4"></i></div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-semibold text-naval line-clamp-2">${escapeHtml(n.title)}</div>
+        ${n.body ? `<div class="text-xs text-slate-500 line-clamp-2 mt-0.5">${escapeHtml(n.body)}</div>` : ""}
+        <div class="text-[11px] text-slate-400 mt-1">${relativeTime(n.created_at)}</div>
+      </div>
+      ${!n.read_at ? `<span class="w-2 h-2 rounded-full bg-naval mt-1.5 shrink-0"></span>` : ""}
+    </div>`).join("")}</div>`;
+}
+
+async function loadNotifDropdown() {
+  const dd = document.getElementById("notif-dropdown");
+  dd.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Carregando…</div>`;
+  const items = await api("/api/notifications/me?limit=20").catch(() => []);
+  dd.innerHTML = renderNotifItems(items) + `
+    <div class="p-2 border-t border-borderd flex items-center justify-between">
+      <button onclick="markAllNotificationsRead()" class="text-xs text-naval font-semibold hover:underline px-2 py-1">Marcar todas como lidas</button>
+      <a href="#/notifications" onclick="document.getElementById('notif-dropdown').classList.add('hidden')" class="text-xs text-naval font-semibold hover:underline px-2 py-1">Ver todas</a>
+    </div>`;
+  rerunLucide();
+}
+
+async function openNotification(id, link) {
+  await api(`/api/notifications/${id}/mark-read`, { method: "POST" }).catch(() => {});
+  document.getElementById("notif-dropdown")?.classList.add("hidden");
+  refreshNotifBadge();
+  if (link) location.hash = link;
+}
+
+async function markAllNotificationsRead() {
+  await api("/api/notifications/mark-all-read", { method: "POST" }).catch(() => {});
+  refreshNotifBadge();
+  if (!document.getElementById("notif-dropdown")?.classList.contains("hidden")) await loadNotifDropdown();
+}
+
+async function refreshNotifBadge() {
+  const badge = document.getElementById("notif-badge");
+  if (!badge) return;
+  const items = await api("/api/notifications/me?unread_only=true&limit=100").catch(() => []);
+  const n = items.length;
+  if (n > 0) { badge.textContent = n > 99 ? "99+" : String(n); badge.classList.remove("hidden"); badge.classList.add("flex"); }
+  else { badge.classList.add("hidden"); badge.classList.remove("flex"); }
+}
+
+async function renderNotificationsPage() {
+  try {
+    const items = await api("/api/notifications/me?limit=100");
+    const list = document.getElementById("notifications-list");
+    if (list) list.innerHTML = renderNotifItems(items);
+    rerunLucide();
+  } catch (e) { console.error("[notifications]", e); }
+}
+
+bindDropdownOutsideClose("notif-btn", "notif-dropdown");
 
 /* ============ PERSONIFICAR (banner) ============ */
 function updateImpersonateBanner(user) {
@@ -1901,6 +1987,7 @@ const routes = {
   "paths": renderPaths,
   "path-detail": renderPathDetail,
   "activity": () => renderActivity(true),
+  "notifications": renderNotificationsPage,
 };
 async function handleRoute() {
   // Sem token = não autenticado → login (fallback p/ acesso standalone fora do Clavis).
