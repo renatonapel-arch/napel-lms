@@ -850,7 +850,8 @@ async function deleteUser(userId) {
 
 async function exportUsersCsv() {
   const users = await api("/api/users");
-  exportCsv("utilizadores.csv", users.map(u => ({
+  const hoje = new Date().toISOString().slice(0, 10);
+  exportCsv(`napel-lms-usuarios-${hoje}.csv`, users.map(u => ({
     id: u.id, login: u.login, nome: u.name, sobrenome: u.surname || "", email: u.email,
     tipo: u.user_type, filial: u.branch, status: u.status, nivel: u.level, pontos: u.points,
     ultimo_login: u.last_login || "",
