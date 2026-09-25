@@ -450,14 +450,18 @@ window.stopImpersonating = stopImpersonating;
 /* ============ QUIZ INTERATIVO ============ */
 let quizState = { unitId: null, qIdx: 0, totalQ: 0, answered: {}, finished: false };
 
+let _quizLoadSeq = 0;  // descarta resposta atrasada quando o aluno navega de novo antes de carregar (ver resetPageDom)
 async function loadQuizIntoPlayer(unitId) {
+  const seq = ++_quizLoadSeq;
   try {
     const unit = await api(`/api/units/${unitId}`);
     if (unit.type !== "quiz") return false;
     const questions = (unit.content || {}).questions || [];
+    const course = await api(`/api/courses/${unit.course_id}`).catch(() => null);
+    if (seq !== _quizLoadSeq) return false;
+    resetPageDom("page-quiz");  // o resultado da prova anterior substituiu o cartão de perguntas — restaura antes de montar
     quizState = { unitId, qIdx: 0, totalQ: questions.length, answered: {}, finished: false, unit };
     // breadcrumb dinâmico do quiz
-    const course = await api(`/api/courses/${unit.course_id}`).catch(() => null);
     const bc = document.querySelector("#page-quiz nav");
     if (bc && course) {
       bc.innerHTML = `<a href="#/courses" class="hover:text-naval">Cursos</a>

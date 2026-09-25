@@ -2314,7 +2314,20 @@ function printStudentHistory(user, enrollments, progress, quizAttempts) {
   _withPrintTitle(`historico-${user.login || user.id}`, () => window.print());
 }
 
+// Telas cujo render sobrescreve o próprio HTML (outerHTML, texto do botão...): o HTML original é guardado na 1ª vez
+// e restaurado antes de CADA render, então todo render parte do mesmo DOM limpo. Sem isso (ticket #0213) a 2ª aula
+// mostrava o vídeo da 1ª, o botão ficava preso em "Concluída" e a 2ª prova não carregava até recarregar a página.
+const _pageTemplates = {};
+function resetPageDom(pageId) {
+  const el = document.getElementById(pageId);
+  if (!el) return;
+  if (!(pageId in _pageTemplates)) _pageTemplates[pageId] = el.innerHTML;
+  el.innerHTML = _pageTemplates[pageId];
+}
+
+let _unitPlayerSeq = 0;  // descarta resposta atrasada quando o aluno navega de novo antes do render terminar
 async function renderUnitPlayer() {
+  const seq = ++_unitPlayerSeq;
   try {
     const qs = new URLSearchParams(location.hash.split("?")[1] || "");
     const unitId = qs.get("unit"); const courseId = qs.get("course");
@@ -2326,6 +2339,7 @@ async function renderUnitPlayer() {
     try {
       unit = await api(`/api/units/${unitId}`);
     } catch (err) {
+      if (seq !== _unitPlayerSeq) return;
       // 403 = curso sequencial e aula anterior não foi concluída
       if (String(err.message).startsWith("403")) {
         toast("Essa aula está bloqueada — conclua a aula anterior primeiro.", "info");
@@ -2339,6 +2353,8 @@ async function renderUnitPlayer() {
       api("/api/users/me/enrollments").catch(() => []),
       api(`/api/courses/${courseId}`).catch(() => null),
     ]);
+    if (seq !== _unitPlayerSeq) return;
+    resetPageDom("page-unit-player");
     // breadcrumb dinâmico (era hardcoded "5 Técnicas de Persuasão")
     const bc = $("#page-unit-player nav");
     if (bc && courseInfo) {
